@@ -208,6 +208,8 @@
   .btn-check { background: #0984e3; }
   .btn-next  { background: #00b894; }
   .btn-reset { background: #636e72; }
+  .btn-help  { background: #e17055; }
+  .btn-help.hidden { display: none; }
 
   button:disabled {
     opacity: 0.5;
@@ -233,6 +235,69 @@
   }
 
   .pop { animation: pop 0.4s ease; }
+
+  /* --- Lösungshilfe: Hände --- */
+  .help-area {
+    margin-top: 14px;
+    padding: 12px 8px;
+    background: #fff8e7;
+    border: 2px dashed #fdcb6e;
+    border-radius: 14px;
+    display: none;
+  }
+
+  .help-area.show { display: block; }
+
+  .help-hint {
+    font-size: 14px;
+    color: #6a4f1c;
+    margin-bottom: 8px;
+    font-weight: bold;
+  }
+
+  .hands-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .hand-pair {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .hand {
+    width: 70px;
+    height: 90px;
+    flex: 0 0 auto;
+  }
+
+  .hand .finger {
+    fill: #fdd6c8;
+    stroke: #a06856;
+    stroke-width: 2;
+    transition: fill 0.25s ease;
+  }
+
+  .hand .palm {
+    fill: #fdd6c8;
+    stroke: #a06856;
+    stroke-width: 2;
+  }
+
+  .hand .finger.active {
+    fill: #ff7675;
+    stroke: #c0392b;
+  }
+
+  @media (max-width: 460px) {
+    .hand { width: 56px; height: 74px; }
+    .hands-row { gap: 8px; }
+    .hand-pair { gap: 1px; }
+  }
 
   /* Bei niedrigen Fenstern noch kompakter, damit die Buttons sichtbar bleiben */
   @media (max-height: 720px) {
@@ -297,8 +362,56 @@
 
     <div class="buttons">
       <button class="btn-check" id="checkBtn" type="button">Prüfen</button>
+      <button class="btn-help  hidden" id="helpBtn" type="button">💡 Hilfe</button>
       <button class="btn-next"  id="nextBtn"  type="button" disabled>Nächste Aufgabe</button>
       <button class="btn-reset" id="resetBtn" type="button">Zurücksetzen</button>
+    </div>
+
+    <div class="help-area" id="helpArea">
+      <div class="help-hint" id="helpHint">Zähle die roten Finger:</div>
+      <div class="hands-row">
+        <div class="hand-pair">
+          <!-- Linke Hand 1 (Innenseite, Daumen rechts) -->
+          <svg class="hand" data-hand-index="0" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg">
+            <!-- Finger zuerst, Handfläche überdeckt unteren Teil -->
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+          <!-- Rechte Hand 1 (Spiegelbild der linken Hand) -->
+          <svg class="hand" data-hand-index="1" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg" style="transform: scaleX(-1);">
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+        </div>
+        <div class="hand-pair">
+          <!-- Linke Hand 2 -->
+          <svg class="hand" data-hand-index="2" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg">
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+          <!-- Rechte Hand 2 -->
+          <svg class="hand" data-hand-index="3" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg" style="transform: scaleX(-1);">
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -328,6 +441,9 @@
   const checkBtn   = document.getElementById('checkBtn');
   const nextBtn    = document.getElementById('nextBtn');
   const resetBtn   = document.getElementById('resetBtn');
+  const helpBtn    = document.getElementById('helpBtn');
+  const helpAreaEl = document.getElementById('helpArea');
+  const helpHintEl = document.getElementById('helpHint');
   const reviewBadgeEl  = document.getElementById('reviewBadge');
   const correctCountEl = document.getElementById('correctCount');
   const secondCountEl  = document.getElementById('secondCount');
@@ -471,6 +587,43 @@
     return { a, b, sign, answer: result };
   }
 
+  // --- Lösungshilfe: Finger einfärben ---
+
+  // Färbt die ersten "count" Finger ein (Daumen=1 bis kleiner Finger=5),
+  // beginnend bei Hand 0 (linke Hand 1), dann Hand 1 (rechte Hand 1), usw.
+  function paintFingers(count) {
+    // Zuerst alle Finger entfärben
+    document.querySelectorAll('.hand .finger').forEach(f => f.classList.remove('active'));
+    if (count <= 0) return;
+    for (let i = 0; i < count && i < 20; i++) {
+      const handIdx = Math.floor(i / 5);            // 0..3
+      const fn      = (i % 5) + 1;                  // 1..5 (Daumen zuerst)
+      const hand    = document.querySelector(`.hand[data-hand-index="${handIdx}"]`);
+      if (!hand) continue;
+      const finger = hand.querySelector(`.finger[data-fn="${fn}"]`);
+      if (finger) finger.classList.add('active');
+    }
+  }
+
+  // Lösungshilfe anzeigen: Finger entsprechend des ersten Operanden einfärben
+  function showHelp() {
+    if (!currentTask) return;
+    const count = currentTask.a;  // Erster Summand bzw. Minuend
+    paintFingers(count);
+    const isPlus = currentTask.sign === '+';
+    helpHintEl.textContent = isPlus
+      ? `Der erste Summand ist ${count}. Zähle die roten Finger:`
+      : `Der Minuend ist ${count}. Zähle die roten Finger:`;
+    helpAreaEl.classList.add('show');
+  }
+
+  // Hilfe komplett ausblenden und zurücksetzen
+  function hideHelp() {
+    helpBtn.classList.add('hidden');
+    helpAreaEl.classList.remove('show');
+    document.querySelectorAll('.hand .finger').forEach(f => f.classList.remove('active'));
+  }
+
   // Aufgabe für den Nutzer setzen — entweder aus der Wiederholungs-Queue
   // (wenn dort eine Aufgabe fällig ist) oder eine neue zufällige Aufgabe.
   function generateTask() {
@@ -507,6 +660,8 @@
     attempt  = 1;
     if (currentFromReview) reviewBadgeEl.classList.add('show');
     else                   reviewBadgeEl.classList.remove('show');
+    // Hilfe für die neue Aufgabe ausblenden
+    hideHelp();
     updateScore();
     answerEl.focus();
   }
@@ -555,6 +710,8 @@
         feedbackEl.className = 'feedback wrong';
         answerEl.value = '';
         answerEl.disabled = false;
+        // Hilfe-Button anzeigen, damit Lösungshilfe abrufbar ist
+        helpBtn.classList.remove('hidden');
         // Roten Rahmen nach kurzer Zeit entfernen, damit beim nächsten Falsch erneut sichtbar wird
         setTimeout(() => answerEl.classList.remove('wrong'), 800);
         answerEl.focus();
@@ -628,6 +785,7 @@
   bindTap(checkBtn, checkAnswer);
   bindTap(nextBtn,  generateTask);
   bindTap(resetBtn, resetAll);
+  bindTap(helpBtn,  showHelp);
 
   answerEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
