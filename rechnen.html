@@ -368,7 +368,7 @@
     </div>
 
     <div class="help-area" id="helpArea">
-      <div class="help-hint" id="helpHint">Zähle die roten Finger:</div>
+      <div class="help-hint" id="helpHint"></div>
       <div class="hands-row">
         <div class="hand-pair">
           <!-- Linke Hand 1 (Innenseite, Daumen rechts) -->
@@ -612,8 +612,8 @@
     paintFingers(count);
     const isPlus = currentTask.sign === '+';
     helpHintEl.textContent = isPlus
-      ? `Der erste Summand ist ${count}. Zähle die roten Finger:`
-      : `Der Minuend ist ${count}. Zähle die roten Finger:`;
+      ? `Der erste Summand ist ${count}.`
+      : `Der Minuend ist ${count}.`;
     helpAreaEl.classList.add('show');
   }
 
