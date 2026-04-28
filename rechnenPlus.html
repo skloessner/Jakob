@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rechnen im Zahlenraum 20</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Comic Sans MS', 'Trebuchet MS', sans-serif;
+    background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16px;
+    overflow-x: hidden;
+  }
+
+  /* --- Konfetti --- */
+  #confetti {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+  }
+
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    opacity: 0.95;
+    animation: fall linear forwards;
+  }
+
+  @keyframes fall {
+    0%   { transform: translateY(0) rotate(0deg);    opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0.8; }
+  }
+
+  /* --- Großes Belohnungs-Emoji --- */
+  .celebrate {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 180px;
+    pointer-events: none;
+    z-index: 10000;
+    animation: celebrate 1.4s ease-out forwards;
+    text-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  }
+
+  @keyframes celebrate {
+    0%   { transform: translate(-50%, -50%) scale(0)   rotate(-30deg); opacity: 0; }
+    30%  { transform: translate(-50%, -50%) scale(1.3) rotate(15deg);  opacity: 1; }
+    60%  { transform: translate(-50%, -50%) scale(1)   rotate(-5deg);  opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.4) rotate(0deg);   opacity: 0; }
+  }
+
+  .container {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    padding: 20px 24px 22px;
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+  }
+
+  h1 {
+    color: #2d3436;
+    margin-bottom: 4px;
+    font-size: 24px;
+  }
+
+  .subtitle {
+    color: #636e72;
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+
+  .score-box {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 14px;
+    padding: 10px 8px;
+    background: #f1f2f6;
+    border-radius: 14px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .score-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 64px;
+  }
+
+  .score-label {
+    font-size: 12px;
+    color: #636e72;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .score-value {
+    font-size: 22px;
+    font-weight: bold;
+  }
+
+  .correct-color   { color: #00b894; }
+  .second-color    { color: #fdcb6e; }
+  .wrong-color     { color: #d63031; }
+  .total-color     { color: #0984e3; }
+
+  .task {
+    font-size: 44px;
+    font-weight: bold;
+    color: #2d3436;
+    margin: 12px 0 6px;
+    letter-spacing: 4px;
+    line-height: 1.1;
+  }
+
+  .review-badge {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 3px 10px;
+    background: #fff3cd;
+    color: #b8860b;
+    border: 2px solid #fdcb6e;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 0;
+    visibility: hidden;
+  }
+
+  .review-badge.show {
+    visibility: visible;
+  }
+
+  .answer-input {
+    font-size: 38px;
+    width: 120px;
+    padding: 6px;
+    border: 4px solid #74b9ff;
+    border-radius: 14px;
+    text-align: center;
+    font-family: inherit;
+    font-weight: bold;
+    color: #2d3436;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .answer-input:focus {
+    border-color: #0984e3;
+  }
+
+  .answer-input.correct {
+    border-color: #00b894;
+    background: #d1f5e8;
+  }
+
+  .answer-input.wrong {
+    border-color: #d63031;
+    background: #ffe0e0;
+  }
+
+  .buttons {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+    color: white;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Hover-Effekt nur auf Geräten mit echtem Mauszeiger,
+     damit der erste Fingertipp auf iPad/Touch nicht nur „Hover" auslöst. */
+  @media (hover: hover) {
+    button:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.15); }
+  }
+  button:active { transform: translateY(1px); box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+
+  .btn-check  { background: #0984e3; }
+  .btn-next   { background: #00b894; }
+  .btn-reset  { background: #636e72; }
+  .btn-help   { background: #e17055; }
+  .btn-help.hidden   { display: none; }
+  .btn-reward { background: #f1c40f; color: #2d3436; }
+  .btn-reward.hidden { display: none; }
+  .btn-reward.pulse {
+    animation: rewardPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes rewardPulse {
+    0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.7); }
+    50%      { transform: scale(1.06); box-shadow: 0 0 0 14px rgba(241, 196, 15, 0); }
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .feedback {
+    margin-top: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    min-height: 28px;
+    line-height: 1.2;
+  }
+
+  .feedback.correct { color: #00b894; }
+  .feedback.wrong   { color: #d63031; }
+
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+
+  .pop { animation: pop 0.4s ease; }
+
+  /* --- Lösungshilfe: Hände --- */
+  .help-area {
+    margin-top: 14px;
+    padding: 12px 8px;
+    background: #fff8e7;
+    border: 2px dashed #fdcb6e;
+    border-radius: 14px;
+    display: none;
+  }
+
+  .help-area.show { display: block; }
+
+  .help-hint {
+    font-size: 14px;
+    color: #6a4f1c;
+    margin-bottom: 8px;
+    font-weight: bold;
+  }
+
+  .hands-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .hand-pair {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .hand {
+    width: 70px;
+    height: 90px;
+    flex: 0 0 auto;
+  }
+
+  .hand .finger {
+    fill: #fdd6c8;
+    stroke: #a06856;
+    stroke-width: 2;
+    transition: fill 0.25s ease;
+  }
+
+  .hand .palm {
+    fill: #fdd6c8;
+    stroke: #a06856;
+    stroke-width: 2;
+  }
+
+  .hand .finger.active {
+    fill: #ff7675;
+    stroke: #c0392b;
+  }
+
+  @media (max-width: 460px) {
+    .hand { width: 56px; height: 74px; }
+    .hands-row { gap: 8px; }
+    .hand-pair { gap: 1px; }
+  }
+
+  /* --- Belohnungsspiel: Modal --- */
+  .reward-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.78);
+    z-index: 10001;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+  }
+
+  .reward-modal.show { display: flex; }
+
+  .reward-content {
+    background: white;
+    border-radius: 18px;
+    padding: 14px 14px 16px;
+    max-width: 480px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  }
+
+  .reward-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+
+  .reward-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2d3436;
+  }
+
+  .btn-exit-game {
+    background: #d63031;
+    padding: 8px 14px;
+    font-size: 15px;
+  }
+
+  .reward-info {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 10px;
+    padding: 8px;
+    background: #f1f2f6;
+    border-radius: 12px;
+  }
+
+  .reward-info-item {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2d3436;
+  }
+
+  .reward-info-item .reward-info-label {
+    font-size: 12px;
+    color: #636e72;
+    font-weight: normal;
+    margin-right: 4px;
+  }
+
+  #gameCanvas {
+    background: #fdf3d8;
+    border: 3px solid #b8860b;
+    border-radius: 12px;
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 380px;
+    height: auto;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .game-hint {
+    font-size: 13px;
+    color: #636e72;
+    margin-top: 8px;
+  }
+
+  /* Bei niedrigen Fenstern noch kompakter, damit die Buttons sichtbar bleiben */
+  @media (max-height: 720px) {
+    .container { padding: 14px 20px 16px; }
+    h1 { font-size: 22px; margin-bottom: 2px; }
+    .subtitle { margin-bottom: 10px; font-size: 13px; }
+    .score-box { margin-bottom: 10px; padding: 8px 6px; }
+    .score-value { font-size: 20px; }
+    .score-label { font-size: 11px; }
+    .task { font-size: 36px; margin: 6px 0 4px; }
+    .answer-input { font-size: 32px; width: 110px; padding: 4px; }
+    .feedback { margin-top: 6px; font-size: 18px; min-height: 24px; }
+    .buttons { margin-top: 10px; gap: 8px; }
+    button { padding: 8px 16px; font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+  <div id="confetti"></div>
+
+  <div class="container">
+    <h1>🔢 Rechnen bis 20</h1>
+    <p class="subtitle">Wie lautet das Ergebnis?</p>
+
+    <div class="score-box">
+      <div class="score-item">
+        <span class="score-label">Direkt<br>richtig</span>
+        <span class="score-value correct-color" id="correctCount">0</span>
+      </div>
+      <div class="score-item">
+        <span class="score-label">Richtig im<br>2. Versuch</span>
+        <span class="score-value second-color" id="secondCount">0</span>
+      </div>
+      <div class="score-item">
+        <span class="score-label">Falsch</span>
+        <span class="score-value wrong-color" id="wrongCount">0</span>
+      </div>
+      <div class="score-item">
+        <span class="score-label">Gesamt</span>
+        <span class="score-value total-color" id="totalCount">0</span>
+      </div>
+      <div class="score-item">
+        <span class="score-label">Zur<br>Wiederholung</span>
+        <span class="score-value second-color" id="reviewCount">0</span>
+      </div>
+    </div>
+
+    <div class="task" id="task">2 + 3 =</div>
+    <div class="review-badge" id="reviewBadge">🔁 Wiederholung</div>
+
+    <input
+      type="number"
+      class="answer-input"
+      id="answer"
+      placeholder="?"
+      autocomplete="off"
+      inputmode="numeric"
+      pattern="[0-9]*"
+    >
+
+    <div class="feedback" id="feedback">&nbsp;</div>
+
+    <div class="buttons">
+      <button class="btn-check"  id="checkBtn"  type="button">Prüfen</button>
+      <button class="btn-help  hidden" id="helpBtn" type="button">💡 Hilfe</button>
+      <button class="btn-next"   id="nextBtn"   type="button" disabled>Nächste Aufgabe</button>
+      <button class="btn-reward hidden" id="rewardBtn" type="button">🎳 Belohnungsspiel</button>
+      <button class="btn-reset"  id="resetBtn"  type="button">Zurücksetzen</button>
+    </div>
+
+    <div class="help-area" id="helpArea">
+      <div class="help-hint" id="helpHint"></div>
+      <div class="hands-row">
+        <div class="hand-pair">
+          <!-- Linke Hand 1 (Innenseite, Daumen rechts) -->
+          <svg class="hand" data-hand-index="0" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg">
+            <!-- Finger zuerst, Handfläche überdeckt unteren Teil -->
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+          <!-- Rechte Hand 1 (Spiegelbild der linken Hand) -->
+          <svg class="hand" data-hand-index="1" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg" style="transform: scaleX(-1);">
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+        </div>
+        <div class="hand-pair">
+          <!-- Linke Hand 2 -->
+          <svg class="hand" data-hand-index="2" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg">
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+          <!-- Rechte Hand 2 -->
+          <svg class="hand" data-hand-index="3" viewBox="0 0 110 140" xmlns="http://www.w3.org/2000/svg" style="transform: scaleX(-1);">
+            <rect class="finger" data-fn="5" x="6"  y="40" width="14" height="50" rx="7"/>
+            <rect class="finger" data-fn="4" x="22" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="3" x="40" y="15" width="16" height="75" rx="8"/>
+            <rect class="finger" data-fn="2" x="58" y="25" width="16" height="65" rx="8"/>
+            <rect class="finger" data-fn="1" x="78" y="62" width="22" height="38" rx="11" transform="rotate(20 89 81)"/>
+            <rect class="palm"   x="4"  y="80" width="100" height="50" rx="16"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Belohnungsspiel: Kegel umwerfen -->
+  <div class="reward-modal" id="rewardModal">
+    <div class="reward-content">
+      <div class="reward-header">
+        <span class="reward-title">🎳 Kegel umwerfen!</span>
+        <button class="btn-exit-game" id="exitGameBtn" type="button">✕ Verlassen</button>
+      </div>
+      <div class="reward-info">
+        <div class="reward-info-item">
+          <span class="reward-info-label">⏱ Zeit:</span>
+          <span id="gameTimer">3:00</span>
+        </div>
+        <div class="reward-info-item">
+          <span class="reward-info-label">🎯 Punkte:</span>
+          <span id="gameScore">0</span>
+        </div>
+      </div>
+      <canvas id="gameCanvas" width="380" height="500"></canvas>
+      <p class="game-hint">Tippe und halte auf das Spielfeld, ziele auf die Kegel und lasse los!</p>
+    </div>
+  </div>
+
+<script>
+  // --- Zustand ---
+  let currentAnswer = 0;
+  let correctCount  = 0;   // direkt richtig (1. Versuch)
+  let secondCount   = 0;   // richtig im 2. Versuch
+  let wrongCount    = 0;   // falsch (auch nach 2. Versuch)
+  let totalCount    = 0;
+  let answered      = false;   // true, sobald Aufgabe endgültig abgeschlossen ist
+  let attempt       = 1;       // aktueller Versuch (1 oder 2)
+
+  // Aktuelle Aufgabe als Objekt (für Wiederholungs-Queue)
+  let currentTask = null;          // { a, b, sign, answer }
+  let currentFromReview = false;   // true, wenn aktuelle Aufgabe aus Wiederholungs-Queue stammt
+
+  // Wiederholungs-Queue: Aufgaben, die falsch oder im 2. Versuch gelöst wurden
+  // Jeder Eintrag: { a, b, sign, answer, dueIn }
+  // dueIn = Anzahl Aufgaben, die noch dazwischen kommen, bevor wiederholt wird (<=0 = fällig)
+  let reviewQueue = [];
+
+  // --- Belohnungsspiel ---
+  const REWARD_THRESHOLD   = 20;            // ab so vielen richtigen Antworten erscheint der Button
+  const REWARD_DURATION_MS = 3 * 60 * 1000; // 3 Minuten Spielzeit
+  let correctSinceReward = 0;               // richtige Antworten seit letztem Belohnungsspiel
+  let rewardActive       = false;           // ob das Spiel gerade läuft
+  let gameState          = null;            // Spielzustand (Ball, Pins, ...)
+  let gameAnimFrame      = 0;
+  let gameTimerInterval  = 0;
+  let gameEndTime        = 0;
+
+  // --- DOM ---
+  const taskEl     = document.getElementById('task');
+  const answerEl   = document.getElementById('answer');
+  const feedbackEl = document.getElementById('feedback');
+  const checkBtn   = document.getElementById('checkBtn');
+  const nextBtn    = document.getElementById('nextBtn');
+  const resetBtn   = document.getElementById('resetBtn');
+  const helpBtn    = document.getElementById('helpBtn');
+  const helpAreaEl = document.getElementById('helpArea');
+  const helpHintEl = document.getElementById('helpHint');
+  const reviewBadgeEl  = document.getElementById('reviewBadge');
+  const correctCountEl = document.getElementById('correctCount');
+  const secondCountEl  = document.getElementById('secondCount');
+  const wrongCountEl   = document.getElementById('wrongCount');
+  const totalCountEl   = document.getElementById('totalCount');
+  const reviewCountEl  = document.getElementById('reviewCount');
+  const rewardBtn      = document.getElementById('rewardBtn');
+  const rewardModalEl  = document.getElementById('rewardModal');
+  const exitGameBtn    = document.getElementById('exitGameBtn');
+  const gameCanvas     = document.getElementById('gameCanvas');
+  const gameCtx        = gameCanvas.getContext('2d');
+  const gameTimerEl    = document.getElementById('gameTimer');
+  const gameScoreEl    = document.getElementById('gameScore');
+
+  // Zufallszahl im Bereich [min, max] (inklusiv)
+  function rand(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  // --- Belohnung: Melodie ---
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audioCtx = new Ctx();
+    }
+    return audioCtx;
+  }
+
+  function playNote(freq, startTime, duration) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(0.25, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.05);
+  }
+
+  function playSuccessMelody() {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    // Manche Browser starten den Kontext erst nach Nutzerinteraktion
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    // Fröhliche aufsteigende Tonfolge: C5 - E5 - G5 - C6
+    playNote(523.25, t + 0.00, 0.15);
+    playNote(659.25, t + 0.12, 0.15);
+    playNote(783.99, t + 0.24, 0.15);
+    playNote(1046.50, t + 0.38, 0.40);
+  }
+
+  // --- Belohnung: Konfetti & Emoji ---
+  function showCelebration() {
+    const container = document.getElementById('confetti');
+    const colors = ['#ff6b6b','#4ecdc4','#ffe66d','#a8e6cf','#ff8b94','#c5a3ff','#74b9ff','#ffa502'];
+    const pieces = 70;
+
+    for (let i = 0; i < pieces; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left  = Math.random() * 100 + '%';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.width  = (6 + Math.random() * 10) + 'px';
+      piece.style.height = (6 + Math.random() * 14) + 'px';
+      piece.style.animationDelay    = (Math.random() * 0.4) + 's';
+      piece.style.animationDuration = (1.4 + Math.random() * 1.2) + 's';
+      container.appendChild(piece);
+      setTimeout(() => piece.remove(), 3000);
+    }
+
+    // Großes Belohnungs-Emoji
+    const emojis = ['🎉','🌟','⭐','🏆','👏','🎊','😄'];
+    const emojiEl = document.createElement('div');
+    emojiEl.className   = 'celebrate';
+    emojiEl.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    document.body.appendChild(emojiEl);
+    setTimeout(() => emojiEl.remove(), 1500);
+  }
+
+  function celebrate() {
+    playSuccessMelody();
+    showCelebration();
+  }
+
+  // --- Wiederholungs-Queue Helfer ---
+
+  // Aufgabe in die Queue aufnehmen (oder Wiedervorlage-Zeitpunkt aktualisieren)
+  function addToReview(task, delay) {
+    const existing = reviewQueue.find(t =>
+      t.a === task.a && t.b === task.b && t.sign === task.sign
+    );
+    if (existing) {
+      existing.dueIn = Math.min(existing.dueIn, delay);
+    } else {
+      reviewQueue.push({
+        a: task.a, b: task.b, sign: task.sign, answer: task.answer,
+        dueIn: delay
+      });
+    }
+  }
+
+  // Eine fällige Aufgabe aus der Queue holen (oder null)
+  function takeDueReviewTask() {
+    let bestIdx = -1;
+    let bestDue = Infinity;
+    for (let i = 0; i < reviewQueue.length; i++) {
+      if (reviewQueue[i].dueIn <= 0 && reviewQueue[i].dueIn < bestDue) {
+        bestDue = reviewQueue[i].dueIn;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx === -1) return null;
+    return reviewQueue.splice(bestIdx, 1)[0];
+  }
+
+  // Counter aller wartenden Aufgaben um 1 verringern
+  function tickReviewQueue() {
+    for (const t of reviewQueue) t.dueIn -= 1;
+  }
+
+  // Eine neue Zufallsaufgabe erzeugen
+  //  - 50% Plus, 50% Minus
+  //  - 50% Ergebnis 0-10, 50% Ergebnis 10-20
+  function generateRandomTask() {
+    const isPlus    = Math.random() < 0.5;
+    const easyRange = Math.random() < 0.5;
+    const minResult = easyRange ? 0  : 10;
+    const maxResult = easyRange ? 10 : 20;
+    const result    = rand(minResult, maxResult);
+
+    let a, b, sign;
+    if (isPlus) {
+      a = rand(0, result);
+      b = result - a;
+      sign = '+';
+    } else {
+      a = rand(result, 20);
+      b = a - result;
+      sign = '−';
+    }
+    return { a, b, sign, answer: result };
+  }
+
+  // --- Lösungshilfe: Finger einfärben ---
+
+  // Färbt die ersten "count" Finger ein (Daumen=1 bis kleiner Finger=5),
+  // beginnend bei Hand 0 (linke Hand 1), dann Hand 1 (rechte Hand 1), usw.
+  function paintFingers(count) {
+    // Zuerst alle Finger entfärben
+    document.querySelectorAll('.hand .finger').forEach(f => f.classList.remove('active'));
+    if (count <= 0) return;
+    for (let i = 0; i < count && i < 20; i++) {
+      const handIdx = Math.floor(i / 5);            // 0..3
+      const fn      = (i % 5) + 1;                  // 1..5 (Daumen zuerst)
+      const hand    = document.querySelector(`.hand[data-hand-index="${handIdx}"]`);
+      if (!hand) continue;
+      const finger = hand.querySelector(`.finger[data-fn="${fn}"]`);
+      if (finger) finger.classList.add('active');
+    }
+  }
+
+  // Lösungshilfe anzeigen: Finger entsprechend des ersten Operanden einfärben
+  function showHelp() {
+    if (!currentTask) return;
+    const count = currentTask.a;  // Erster Summand bzw. Minuend
+    paintFingers(count);
+    const isPlus = currentTask.sign === '+';
+    helpHintEl.textContent = isPlus
+      ? `Der erste Summand ist ${count}.`
+      : `Der Minuend ist ${count}.`;
+    helpAreaEl.classList.add('show');
+  }
+
+  // Hilfe komplett ausblenden und zurücksetzen
+  function hideHelp() {
+    helpBtn.classList.add('hidden');
+    helpAreaEl.classList.remove('show');
+    document.querySelectorAll('.hand .finger').forEach(f => f.classList.remove('active'));
+  }
+
+  // --- Belohnungsspiel: Fortschritt & Button ---
+
+  // Wird bei jeder richtigen Antwort (1. oder 2. Versuch) aufgerufen
+  function bumpRewardProgress() {
+    if (rewardActive) return;
+    correctSinceReward += 1;
+    if (correctSinceReward >= REWARD_THRESHOLD) {
+      rewardBtn.classList.remove('hidden');
+      rewardBtn.classList.add('pulse');
+    }
+  }
+
+  // --- Belohnungsspiel: Spiel-Logik ---
+
+  function createPins() {
+    // 6 Kegel in Dreiecksformation, oben mittig
+    const cx   = gameCanvas.width / 2;
+    const topY = 90;
+    const dx   = 34;
+    const dy   = 32;
+    return [
+      { x: cx,            y: topY,          r: 13, down: false },
+      { x: cx - dx / 2,   y: topY + dy,     r: 13, down: false },
+      { x: cx + dx / 2,   y: topY + dy,     r: 13, down: false },
+      { x: cx - dx,       y: topY + 2 * dy, r: 13, down: false },
+      { x: cx,            y: topY + 2 * dy, r: 13, down: false },
+      { x: cx + dx,       y: topY + 2 * dy, r: 13, down: false }
+    ];
+  }
+
+  function resetBallPosition() {
+    if (!gameState) return;
+    gameState.ball.x  = gameCanvas.width / 2;
+    gameState.ball.y  = gameCanvas.height - 40;
+    gameState.ball.vx = 0;
+    gameState.ball.vy = 0;
+    gameState.ballMoving = false;
+  }
+
+  function startRewardGame() {
+    if (rewardActive) return;
+    rewardActive = true;
+    rewardBtn.classList.add('hidden');
+    rewardBtn.classList.remove('pulse');
+    rewardModalEl.classList.add('show');
+
+    gameState = {
+      ball: { x: gameCanvas.width / 2, y: gameCanvas.height - 40, vx: 0, vy: 0, r: 14 },
+      pins: createPins(),
+      score: 0,
+      aim: null,
+      ballMoving: false,
+      stopTimer: 0
+    };
+    gameScoreEl.textContent = '0';
+    gameEndTime = Date.now() + REWARD_DURATION_MS;
+    updateGameTimer();
+    if (gameTimerInterval) clearInterval(gameTimerInterval);
+    gameTimerInterval = setInterval(updateGameTimer, 250);
+    if (gameAnimFrame) cancelAnimationFrame(gameAnimFrame);
+    gameLoop();
+  }
+
+  function endRewardGame() {
+    if (!rewardActive) return;
+    rewardActive = false;
+    rewardModalEl.classList.remove('show');
+    if (gameAnimFrame) { cancelAnimationFrame(gameAnimFrame); gameAnimFrame = 0; }
+    if (gameTimerInterval) { clearInterval(gameTimerInterval); gameTimerInterval = 0; }
+    gameState = null;
+    // Counter zurücksetzen — User muss erneut 20 richtige Antworten erreichen
+    correctSinceReward = 0;
+    rewardBtn.classList.add('hidden');
+    rewardBtn.classList.remove('pulse');
+  }
+
+  function updateGameTimer() {
+    const remaining = Math.max(0, gameEndTime - Date.now());
+    const totalSec  = Math.ceil(remaining / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    gameTimerEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    if (remaining <= 0) endRewardGame();
+  }
+
+  function gameLoop() {
+    if (!rewardActive || !gameState) return;
+    updateGame();
+    drawGame();
+    gameAnimFrame = requestAnimationFrame(gameLoop);
+  }
+
+  function updateGame() {
+    const ball = gameState.ball;
+
+    if (gameState.ballMoving) {
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+      // Reibung
+      ball.vx *= 0.987;
+      ball.vy *= 0.987;
+
+      // Wandkollisionen (alle 4 Wände prallen ab)
+      if (ball.x - ball.r < 0)                   { ball.x = ball.r;                     ball.vx = -ball.vx * 0.85; }
+      if (ball.x + ball.r > gameCanvas.width)    { ball.x = gameCanvas.width - ball.r;  ball.vx = -ball.vx * 0.85; }
+      if (ball.y - ball.r < 0)                   { ball.y = ball.r;                     ball.vy = -ball.vy * 0.85; }
+      if (ball.y + ball.r > gameCanvas.height)   { ball.y = gameCanvas.height - ball.r; ball.vy = -ball.vy * 0.85; }
+
+      // Kegel-Kollisionen
+      for (const pin of gameState.pins) {
+        if (pin.down) continue;
+        const dx = ball.x - pin.x;
+        const dy = ball.y - pin.y;
+        const d  = Math.sqrt(dx * dx + dy * dy);
+        const minD = ball.r + pin.r;
+        if (d < minD && d > 0.0001) {
+          pin.down = true;
+          gameState.score += 1;
+          gameScoreEl.textContent = gameState.score;
+          // Ball reflektieren
+          const nx = dx / d;
+          const ny = dy / d;
+          const dot = ball.vx * nx + ball.vy * ny;
+          ball.vx -= 1.6 * dot * nx;
+          ball.vy -= 1.6 * dot * ny;
+          // Aus Kegel rausschieben
+          ball.x = pin.x + nx * (minD + 1);
+          ball.y = pin.y + ny * (minD + 1);
+          // Kurzer Klang
+          playPinHit();
+        }
+      }
+
+      // Geschwindigkeit prüfen — bei Stillstand Ball zurücksetzen
+      const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+      if (speed < 0.35) {
+        ball.vx = 0; ball.vy = 0;
+        gameState.ballMoving = false;
+        gameState.stopTimer = Date.now();
+      }
+    } else if (gameState.stopTimer && Date.now() - gameState.stopTimer > 600) {
+      gameState.stopTimer = 0;
+      // Wenn alle Kegel umgeworfen, neue Runde
+      if (gameState.pins.every(p => p.down)) {
+        gameState.pins = createPins();
+      }
+      resetBallPosition();
+    }
+  }
+
+  function drawGame() {
+    const ctx = gameCtx;
+    const W = gameCanvas.width;
+    const H = gameCanvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // Hintergrund: Bowlingbahn-Look
+    ctx.fillStyle = '#fdf3d8';
+    ctx.fillRect(0, 0, W, H);
+    // Mittellinie
+    ctx.strokeStyle = '#e6d5a8';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(W / 2, 0);
+    ctx.lineTo(W / 2, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Kegel zeichnen
+    for (const pin of gameState.pins) {
+      if (pin.down) {
+        // Liegender Kegel: kleiner grauer Kreis mit X
+        ctx.fillStyle = '#bdc3c7';
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#7f8c8d';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        // Stehender Kegel: weißer Körper mit roter Spitze
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y + 2, pin.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+        ctx.strokeStyle = '#2d3436';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Roter Streifen oben
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y - 4, pin.r * 0.55, 0, Math.PI * 2);
+        ctx.fillStyle = '#d63031';
+        ctx.fill();
+        ctx.strokeStyle = '#a02020';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    // Zielhilfe (Pfeil vom Ball zum Finger)
+    const ball = gameState.ball;
+    if (gameState.aim && !gameState.ballMoving) {
+      const ax = gameState.aim.x;
+      const ay = gameState.aim.y;
+      ctx.strokeStyle = 'rgba(214, 48, 49, 0.75)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(ball.x, ball.y);
+      ctx.lineTo(ax, ay);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Pfeilspitze
+      const dx = ax - ball.x, dy = ay - ball.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 6) {
+        const ux = dx / len, uy = dy / len;
+        const px = -uy, py = ux;
+        const tip = 10;
+        ctx.fillStyle = 'rgba(214, 48, 49, 0.85)';
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax - ux * tip + px * 6, ay - uy * tip + py * 6);
+        ctx.lineTo(ax - ux * tip - px * 6, ay - uy * tip - py * 6);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // Ball
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#0984e3';
+    ctx.fill();
+    ctx.strokeStyle = '#0c3a5e';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // kleines Highlight
+    ctx.beginPath();
+    ctx.arc(ball.x - ball.r * 0.35, ball.y - ball.r * 0.35, ball.r * 0.35, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fill();
+  }
+
+  // Kurzer Klick-Sound beim Kegeltreffer
+  function playPinHit() {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    playNote(440 + Math.random() * 120, t, 0.08);
+  }
+
+  // --- Belohnungsspiel: Eingabe (Touch/Maus) ---
+  // Einmalig beim Laden registrieren — Listener bleiben aktiv,
+  // checken aber gameState/rewardActive bevor sie etwas tun.
+  (function setupGameInput() {
+    let dragging = false;
+
+    function getPointer(e) {
+      const rect = gameCanvas.getBoundingClientRect();
+      const p = e.touches && e.touches[0]
+              ? e.touches[0]
+              : (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : e);
+      const scaleX = gameCanvas.width  / rect.width;
+      const scaleY = gameCanvas.height / rect.height;
+      return {
+        x: (p.clientX - rect.left) * scaleX,
+        y: (p.clientY - rect.top)  * scaleY
+      };
+    }
+
+    function start(e) {
+      if (!rewardActive || !gameState || gameState.ballMoving) return;
+      e.preventDefault();
+      dragging = true;
+      gameState.aim = getPointer(e);
+    }
+    function move(e) {
+      if (!dragging || !gameState) return;
+      e.preventDefault();
+      gameState.aim = getPointer(e);
+    }
+    function end(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      dragging = false;
+      if (!gameState || !gameState.aim) return;
+      const aim = gameState.aim;
+      gameState.aim = null;
+      const dx = aim.x - gameState.ball.x;
+      const dy = aim.y - gameState.ball.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 25) return;            // zu kurze Geste -> kein Wurf
+      const power = Math.min(len / 22, 14);
+      gameState.ball.vx = (dx / len) * power;
+      gameState.ball.vy = (dy / len) * power;
+      gameState.ballMoving = true;
+    }
+
+    gameCanvas.addEventListener('mousedown',  start);
+    gameCanvas.addEventListener('mousemove',  move);
+    gameCanvas.addEventListener('mouseup',    end);
+    gameCanvas.addEventListener('mouseleave', (e) => { if (dragging) end(e); });
+    gameCanvas.addEventListener('touchstart', start, { passive: false });
+    gameCanvas.addEventListener('touchmove',  move,  { passive: false });
+    gameCanvas.addEventListener('touchend',   end,   { passive: false });
+    gameCanvas.addEventListener('touchcancel',end,   { passive: false });
+  })();
+
+  // Aufgabe für den Nutzer setzen — entweder aus der Wiederholungs-Queue
+  // (wenn dort eine Aufgabe fällig ist) oder eine neue zufällige Aufgabe.
+  function generateTask() {
+    const due = takeDueReviewTask();
+    let task;
+    if (due) {
+      task = { a: due.a, b: due.b, sign: due.sign, answer: due.answer };
+      currentFromReview = true;
+    } else {
+      task = generateRandomTask();
+      currentFromReview = false;
+    }
+
+    // Counter der noch wartenden Aufgaben weiter zählen
+    tickReviewQueue();
+
+    currentTask   = task;
+    currentAnswer = task.answer;
+    taskEl.textContent = `${task.a} ${task.sign} ${task.b} =`;
+    taskEl.classList.remove('pop');
+    // Reflow erzwingen, damit Animation neu startet
+    void taskEl.offsetWidth;
+    taskEl.classList.add('pop');
+
+    // UI zurücksetzen
+    answerEl.value = '';
+    answerEl.classList.remove('correct', 'wrong');
+    answerEl.disabled = false;
+    feedbackEl.textContent = ' ';
+    feedbackEl.className = 'feedback';
+    checkBtn.disabled = false;
+    nextBtn.disabled  = true;
+    answered = false;
+    attempt  = 1;
+    if (currentFromReview) reviewBadgeEl.classList.add('show');
+    else                   reviewBadgeEl.classList.remove('show');
+    // Hilfe für die neue Aufgabe ausblenden
+    hideHelp();
+    updateScore();
+    answerEl.focus();
+  }
+
+  // Antwort prüfen
+  function checkAnswer() {
+    if (answered) return;
+    const userVal = parseInt(answerEl.value, 10);
+    if (isNaN(userVal)) {
+      feedbackEl.textContent = '✏️ Bitte eine Zahl eingeben!';
+      feedbackEl.className = 'feedback wrong';
+      return;
+    }
+
+    if (userVal === currentAnswer) {
+      // Richtige Antwort
+      answered     = true;
+      totalCount  += 1;
+      answerEl.disabled = true;
+      checkBtn.disabled = true;
+      nextBtn.disabled  = false;
+      answerEl.classList.remove('wrong');
+      answerEl.classList.add('correct');
+
+      if (attempt === 1) {
+        correctCount += 1;
+        feedbackEl.textContent = '✅ Richtig! Super gemacht!';
+        // Direkt richtig -> nichts in die Queue legen
+      } else {
+        secondCount += 1;
+        feedbackEl.textContent = '✅ Richtig im 2. Versuch! Gut gemacht!';
+        // Im 2. Versuch richtig -> noch einmal vorlegen, aber etwas später
+        addToReview(currentTask, rand(2, 4));
+      }
+      // Fortschritt für Belohnungsspiel mitzählen
+      bumpRewardProgress();
+      feedbackEl.className = 'feedback correct';
+      celebrate();
+      updateScore();
+      nextBtn.focus();
+    } else {
+      // Falsche Antwort
+      if (attempt === 1) {
+        // Erster Fehlversuch -> zweiter Versuch erlaubt
+        attempt = 2;
+        answerEl.classList.add('wrong');
+        feedbackEl.textContent = '❌ Leider falsch. Versuche es nochmal!';
+        feedbackEl.className = 'feedback wrong';
+        answerEl.value = '';
+        answerEl.disabled = false;
+        // Hilfe-Button anzeigen, damit Lösungshilfe abrufbar ist
+        helpBtn.classList.remove('hidden');
+        // Roten Rahmen nach kurzer Zeit entfernen, damit beim nächsten Falsch erneut sichtbar wird
+        setTimeout(() => answerEl.classList.remove('wrong'), 800);
+        answerEl.focus();
+      } else {
+        // Zweiter Fehlversuch -> Lösung anzeigen, Aufgabe abschließen
+        answered     = true;
+        totalCount  += 1;
+        wrongCount  += 1;
+        answerEl.disabled = true;
+        checkBtn.disabled = true;
+        nextBtn.disabled  = false;
+        answerEl.classList.add('wrong');
+        feedbackEl.textContent = `❌ Leider auch falsch. Richtig wäre: ${currentAnswer}`;
+        feedbackEl.className = 'feedback wrong';
+        // Falsch -> Aufgabe zeitnah erneut vorlegen
+        addToReview(currentTask, rand(1, 3));
+        updateScore();
+        nextBtn.focus();
+      }
+    }
+  }
+
+  function updateScore() {
+    correctCountEl.textContent = correctCount;
+    secondCountEl.textContent  = secondCount;
+    wrongCountEl.textContent   = wrongCount;
+    totalCountEl.textContent   = totalCount;
+    reviewCountEl.textContent  = reviewQueue.length;
+  }
+
+  function resetAll() {
+    correctCount = 0;
+    secondCount  = 0;
+    wrongCount   = 0;
+    totalCount   = 0;
+    reviewQueue  = [];
+    currentFromReview = false;
+    // Belohnungsspiel zurücksetzen
+    if (rewardActive) endRewardGame();
+    correctSinceReward = 0;
+    rewardBtn.classList.add('hidden');
+    rewardBtn.classList.remove('pulse');
+    updateScore();
+    generateTask();
+  }
+
+  // --- Events ---
+  // Auf iPad Safari schluckt der erste Tap manchmal den Klick, weil das
+  // Eingabefeld noch Fokus hat und die Bildschirmtastatur erst geschlossen wird.
+  // Lösung: Tap-Handler, der sowohl auf touchend als auch auf click reagiert,
+  // mit Schutz gegen doppelte Auslösung.
+  function bindTap(el, fn) {
+    let lastFire = 0;
+    function fire() {
+      if (el.disabled) return;
+      const now = Date.now();
+      if (now - lastFire < 400) return;  // Doppelfeuern verhindern
+      lastFire = now;
+      // Eingabefeld vor Aktion blurren, damit iOS-Keyboard nicht im Weg ist
+      if (document.activeElement && document.activeElement !== document.body) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
+      fn();
+    }
+    el.addEventListener('touchend', (e) => {
+      const t = e.changedTouches && e.changedTouches[0];
+      if (t) {
+        const target = document.elementFromPoint(t.clientX, t.clientY);
+        if (target !== el && !el.contains(target)) return;
+      }
+      e.preventDefault();
+      fire();
+    }, { passive: false });
+    el.addEventListener('click', fire);
+  }
+  bindTap(checkBtn,    checkAnswer);
+  bindTap(nextBtn,     generateTask);
+  bindTap(resetBtn,    resetAll);
+  bindTap(helpBtn,     showHelp);
+  bindTap(rewardBtn,   startRewardGame);
+  bindTap(exitGameBtn, endRewardGame);
+
+  answerEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      if (!answered) checkAnswer();
+      else generateTask();
+    }
+  });
+
+  // Start
+  generateTask();
+</script>
+</body>
+</html>
