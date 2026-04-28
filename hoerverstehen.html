@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hörverstehen-Trainer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #4f46e5;
+    --primary-light: #818cf8;
+    --primary-bg: #eef2ff;
+    --success: #16a34a;
+    --success-bg: #dcfce7;
+    --error: #dc2626;
+    --error-bg: #fee2e2;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-600: #4b5563;
+    --gray-800: #1f2937;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .app {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    max-width: 640px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .app-header {
+    background: var(--primary);
+    color: #fff;
+    padding: 20px 24px;
+    text-align: center;
+  }
+  .app-header h1 { font-size: 1.5rem; font-weight: 700; }
+  .app-header p { font-size: 0.85rem; opacity: 0.85; margin-top: 4px; }
+
+  .app-body { padding: 24px; }
+
+  /* ---------- Start screen ---------- */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .text-card {
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 2px solid transparent;
+  }
+  .text-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-color: var(--primary-light);
+  }
+  .text-card .card-title { font-weight: 600; color: var(--gray-800); font-size: 1rem; }
+  .text-card .card-tag {
+    display: inline-block;
+    background: var(--primary-bg);
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 6px;
+  }
+
+  /* ---------- Player screen ---------- */
+  .speed-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .speed-btn {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--gray-600);
+  }
+  .speed-btn.active {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+    color: var(--primary);
+  }
+
+  .play-area {
+    text-align: center;
+    padding: 30px 0;
+  }
+
+  .play-btn {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-size: 2rem;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .play-btn:hover { transform: scale(1.08); background: #4338ca; }
+  .play-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .status-text {
+    margin-top: 12px;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    min-height: 1.4em;
+  }
+
+  .progress-bar-container {
+    width: 100%;
+    height: 6px;
+    background: var(--gray-200);
+    border-radius: 3px;
+    margin-top: 16px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: #4338ca; }
+  .btn-secondary { background: var(--gray-100); color: var(--gray-600); }
+  .btn-secondary:hover { background: var(--gray-200); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- Quiz screen ---------- */
+  .question-counter {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .question-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .option-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: #fff;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--gray-800);
+  }
+  .option-btn:hover:not(:disabled) {
+    border-color: var(--primary-light);
+    background: var(--primary-bg);
+  }
+  .option-btn.correct {
+    border-color: var(--success);
+    background: var(--success-bg);
+    color: var(--success);
+    font-weight: 600;
+  }
+  .option-btn.wrong {
+    border-color: var(--error);
+    background: var(--error-bg);
+    color: var(--error);
+  }
+  .option-btn:disabled { cursor: default; }
+
+  .replay-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fffbeb;
+    border: 1px solid #fbbf24;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    color: #92400e;
+  }
+
+  /* ---------- Result screen ---------- */
+  .result-circle {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 auto 16px;
+  }
+  .result-circle.good { background: var(--success-bg); color: var(--success); }
+  .result-circle.ok { background: #fef9c3; color: #a16207; }
+  .result-circle.bad { background: var(--error-bg); color: var(--error); }
+
+  .result-msg {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 6px;
+  }
+  .result-sub {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin-bottom: 24px;
+  }
+
+  /* ---------- Score badge ---------- */
+  .score-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .score-badge.good { background: var(--success-bg); color: var(--success); }
+  .score-badge.ok { background: #fef9c3; color: #a16207; }
+  .score-badge.bad { background: var(--error-bg); color: var(--error); }
+  .text-card { position: relative; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 480px) {
+    .app-header h1 { font-size: 1.2rem; }
+    .app-body { padding: 16px; }
+    .btn { padding: 10px 16px; font-size: 0.85rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="app-header">
+    <h1>🎧 Hörverstehen-Trainer</h1>
+    <p>Hör gut zu und beantworte die Fragen!</p>
+  </div>
+
+  <div class="app-body">
+
+    <!-- ===== START SCREEN ===== -->
+    <div id="screen-start" class="screen active">
+      <p style="margin-bottom:16px; color:var(--gray-600); font-size:0.9rem;">Wähle einen Text aus:</p>
+      <div id="text-list"></div>
+    </div>
+
+    <!-- ===== PLAYER SCREEN ===== -->
+    <div id="screen-player" class="screen">
+      <h2 id="player-title" style="font-size:1.15rem; font-weight:700; color:var(--gray-800); margin-bottom:16px;"></h2>
+
+      <div class="speed-toggle">
+        <button class="speed-btn active" data-speed="1" onclick="setSpeed(1)">Normal</button>
+        <button class="speed-btn" data-speed="0.9" onclick="setSpeed(0.9)">Etwas langsamer</button>
+      </div>
+
+      <div class="play-area">
+        <button class="play-btn" id="btn-play" onclick="togglePlay()">▶</button>
+        <div class="status-text" id="status-text">Drücke Play zum Anhören</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goHome()">← Zurück</button>
+        <button class="btn btn-primary" id="btn-to-quiz" onclick="goToQuiz()" disabled>Zu den Fragen →</button>
+      </div>
+    </div>
+
+    <!-- ===== QUIZ SCREEN ===== -->
+    <div id="screen-quiz" class="screen">
+      <div class="replay-hint">
+        <span>💡</span>
+        <span>Du kannst dir den Text jederzeit nochmal anhören!</span>
+      </div>
+      <div class="question-counter" id="q-counter"></div>
+      <div class="question-text" id="q-text"></div>
+      <div id="q-options"></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="replayFromQuiz()">🔊 Nochmal anhören</button>
+        <button class="btn btn-primary" id="btn-next-q" onclick="nextQuestion()" style="display:none;">Weiter →</button>
+      </div>
+    </div>
+
+    <!-- ===== REPLAY-FROM-QUIZ SCREEN ===== -->
+    <div id="screen-replay" class="screen">
+      <h2 id="replay-title" style="font-size:1.15rem; font-weight:700; color:var(--gray-800); margin-bottom:16px;"></h2>
+
+      <div class="speed-toggle">
+        <button class="speed-btn" data-speed="1" onclick="setSpeed(1)">Normal</button>
+        <button class="speed-btn" data-speed="0.9" onclick="setSpeed(0.9)">Etwas langsamer</button>
+      </div>
+
+      <div class="play-area">
+        <button class="play-btn" id="btn-replay" onclick="toggleReplay()">▶</button>
+        <div class="status-text" id="replay-status">Drücke Play zum Anhören</div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="replay-progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="backToQuiz()">← Zurück zur Frage</button>
+      </div>
+    </div>
+
+    <!-- ===== RESULT SCREEN ===== -->
+    <div id="screen-result" class="screen">
+      <div class="result-circle" id="result-circle"></div>
+      <div class="result-msg" id="result-msg"></div>
+      <div class="result-sub" id="result-sub"></div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" onclick="goHome()">Neuen Text wählen</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ===================== TEXT DATA =====================
+const texte = [
+  {
+    id: 1,
+    titel: "Der Oktopus – ein schlauer Meeresbewohner",
+    kategorie: "Natur & Tiere",
+    text: `Der Oktopus gehört zu den cleversten Tieren im Meer. Er hat acht Arme, drei Herzen und blaues Blut. Sein Gehirn ist im Vergleich zu anderen wirbellosen Tieren besonders groß. Forscher haben beobachtet, wie Oktopusse Schraubgläser öffnen, um an Futter zu gelangen. In Aquarien sind sie dafür bekannt, aus ihren Becken zu klettern und durch enge Spalten zu entkommen. Ein Oktopus kann seine Farbe und sogar die Struktur seiner Haut in Sekundenbruchteilen verändern. So tarnt er sich perfekt vor Feinden oder schleicht sich an Beute heran. Manche Arten sammeln Kokosnussschalen und benutzen sie als Schutzschild – das ist eine der wenigen Formen von Werkzeuggebrauch im Tierreich. Leider leben Oktopusse nur etwa ein bis zwei Jahre. Nach der Eiablage hört das Weibchen auf zu fressen und stirbt kurz nach dem Schlüpfen der Jungen. Trotz ihres kurzen Lebens faszinieren diese Tiere Wissenschaftler auf der ganzen Welt.`,
+    fragen: [
+      { frage: "Wie viele Herzen hat ein Oktopus?", optionen: ["Zwei", "Drei", "Vier", "Eins"], richtig: 1 },
+      { frage: "Was machen manche Oktopusse mit Kokosnussschalen?", optionen: ["Sie fressen sie", "Sie benutzen sie als Schutzschild", "Sie spielen damit", "Sie bauen Nester daraus"], richtig: 1 },
+      { frage: "Wie lange lebt ein Oktopus ungefähr?", optionen: ["Fünf bis zehn Jahre", "Zehn bis zwanzig Jahre", "Ein bis zwei Jahre", "Weniger als ein Jahr"], richtig: 2 }
+    ]
+  },
+  {
+    id: 2,
+    titel: "Die Erfindung des Buchdrucks",
+    kategorie: "Geschichte",
+    text: `Vor etwa 580 Jahren veränderte eine Erfindung die Welt für immer: der Buchdruck mit beweglichen Lettern. Johannes Gutenberg aus Mainz entwickelte um das Jahr 1450 eine Druckerpresse, mit der man Texte viel schneller vervielfältigen konnte als durch Abschreiben von Hand. Vorher mussten Mönche in Klöstern jedes Buch einzeln abschreiben. Das dauerte Monate oder sogar Jahre. Bücher waren deshalb extrem teuer und nur wenige Menschen konnten lesen. Gutenberg stellte einzelne Buchstaben aus Metall her, die er immer wieder neu zusammensetzen konnte. So konnte er verschiedene Seiten drucken, ohne jedes Mal neue Formen herstellen zu müssen. Sein berühmtestes Werk war die Gutenberg-Bibel. Durch den Buchdruck konnten plötzlich viel mehr Menschen an Wissen gelangen. Bücher wurden billiger, Schulen verbreiteten sich, und neue Ideen reisten schneller durch Europa. Viele Historiker sagen, dass der Buchdruck eine der wichtigsten Erfindungen der Menschheitsgeschichte war – ähnlich bedeutend wie später das Internet.`,
+    fragen: [
+      { frage: "In welcher Stadt lebte Johannes Gutenberg?", optionen: ["Berlin", "Mainz", "Hamburg", "Köln"], richtig: 1 },
+      { frage: "Wer schrieb Bücher ab, bevor es den Buchdruck gab?", optionen: ["Lehrer in Schulen", "Mönche in Klöstern", "Kinder in Familien", "Könige in Schlössern"], richtig: 1 },
+      { frage: "Was war Gutenbergs berühmtestes gedrucktes Werk?", optionen: ["Ein Wörterbuch", "Ein Märchenbuch", "Die Gutenberg-Bibel", "Eine Zeitung"], richtig: 2 }
+    ]
+  },
+  {
+    id: 3,
+    titel: "Warum der Himmel blau ist",
+    kategorie: "Wissenschaft",
+    text: `Hast du dich schon mal gefragt, warum der Himmel blau aussieht? Die Antwort hat mit dem Sonnenlicht zu tun. Sonnenlicht sieht für uns weiß aus, aber eigentlich besteht es aus allen Farben des Regenbogens: Rot, Orange, Gelb, Grün, Blau und Violett. Jede dieser Farben hat eine andere Wellenlänge. Rotes Licht hat lange Wellen, blaues Licht hat kurze Wellen. Wenn das Sonnenlicht in die Erdatmosphäre eintritt, trifft es auf winzige Gasteilchen wie Stickstoff und Sauerstoff. Diese Teilchen sind so klein, dass sie vor allem das kurzwellige blaue Licht in alle Richtungen streuen. Diesen Vorgang nennen Wissenschaftler Rayleigh-Streuung. Das blaue Licht wird also überall am Himmel verteilt, und deshalb sehen wir den Himmel blau. Bei Sonnenuntergang steht die Sonne tief und das Licht muss einen viel längeren Weg durch die Atmosphäre nehmen. Dabei wird das blaue Licht fast vollständig gestreut und es bleibt das rote und orangefarbene Licht übrig. Deshalb leuchtet der Himmel abends oft in warmen Farben.`,
+    fragen: [
+      { frage: "Aus welchen Farben besteht das Sonnenlicht?", optionen: ["Nur aus Gelb und Weiß", "Aus allen Farben des Regenbogens", "Nur aus Blau und Rot", "Aus keiner Farbe"], richtig: 1 },
+      { frage: "Wie heißt der Vorgang, bei dem blaues Licht gestreut wird?", optionen: ["Lichtbrechung", "Rayleigh-Streuung", "Spiegelung", "Absorption"], richtig: 1 },
+      { frage: "Warum ist der Himmel bei Sonnenuntergang rot?", optionen: ["Die Sonne wird heißer", "Das blaue Licht ist fast vollständig gestreut", "Die Wolken färben sich", "Die Erde dreht sich schneller"], richtig: 1 }
+    ]
+  },
+  {
+    id: 4,
+    titel: "Das Geheimnis der alten Truhe",
+    kategorie: "Abenteuer",
+    text: `Lena und ihr Bruder Tom fanden die Truhe auf dem Dachboden ihrer Großeltern. Sie war aus dunklem Holz, mit Metallbeschlägen verziert und hatte ein rostiges Schloss. „Die gehörte eurem Urgroßvater", sagte Oma, als sie die Kinder damit erwischte. Mit einem alten Schlüssel, den Oma aus einer Schublade holte, öffneten sie die Truhe gemeinsam. Darin lagen vergilbte Briefe, eine alte Landkarte und ein kleines Fernglas. Die Landkarte zeigte einen Wald in der Nähe ihres Dorfes. Ein roter Kreis war an einer bestimmten Stelle eingezeichnet. Tom war sofort begeistert: „Das ist bestimmt eine Schatzkarte!" Am nächsten Tag machten sich die beiden auf den Weg. Sie folgten der Karte durch den Wald bis zu einer großen Eiche. Dort gruben sie mit kleinen Schaufeln und fanden tatsächlich eine Metalldose. Darin war kein Gold, aber etwas viel Wertvolleres: alte Familienfotos, eine Taschenuhr und ein Brief ihres Urgroßvaters, in dem er schrieb, dass Erinnerungen der größte Schatz seien.`,
+    fragen: [
+      { frage: "Wo fanden Lena und Tom die Truhe?", optionen: ["Im Keller", "Im Garten", "Auf dem Dachboden", "In der Garage"], richtig: 2 },
+      { frage: "Was war auf der Landkarte eingezeichnet?", optionen: ["Ein blauer Stern", "Ein roter Kreis", "Ein grünes Kreuz", "Ein schwarzer Pfeil"], richtig: 1 },
+      { frage: "Was fanden die Kinder in der Metalldose?", optionen: ["Goldmünzen", "Süßigkeiten", "Familienfotos, eine Taschenuhr und einen Brief", "Einen Diamantring"], richtig: 2 }
+    ]
+  },
+  {
+    id: 5,
+    titel: "Vulkane – Feuer aus der Erde",
+    kategorie: "Geografie",
+    text: `Tief unter der Erdoberfläche ist es so heiß, dass Gestein schmilzt. Dieses flüssige Gestein nennt man Magma. Wenn der Druck unter der Erde zu groß wird, sucht sich das Magma einen Weg nach oben – ein Vulkan bricht aus. Sobald das Magma die Oberfläche erreicht, heißt es Lava. Lava kann über tausend Grad heiß sein. Es gibt verschiedene Arten von Vulkanausbrüchen. Manche Vulkane spucken Lava langsam und gleichmäßig aus, wie der Kilauea auf Hawaii. Andere explodieren gewaltig, wie der Mount St. Helens in den USA im Jahr 1980. Weltweit gibt es etwa 1.500 aktive Vulkane. Die meisten befinden sich entlang des sogenannten Pazifischen Feuerrings, einem Gürtel um den Pazifischen Ozean. Aber Vulkane sind nicht nur zerstörerisch. Vulkanische Böden sind besonders fruchtbar, weshalb viele Menschen in der Nähe von Vulkanen leben und Landwirtschaft betreiben. Auch heiße Quellen und Geysire, die Touristen anziehen, entstehen durch vulkanische Aktivität.`,
+    fragen: [
+      { frage: "Wie nennt man flüssiges Gestein unter der Erde?", optionen: ["Lava", "Magma", "Ite", "Ite"], richtig: 1 },
+      { frage: "Wie viele aktive Vulkane gibt es ungefähr weltweit?", optionen: ["Etwa 500", "Etwa 1.500", "Etwa 5.000", "Etwa 10.000"], richtig: 1 },
+      { frage: "Warum leben viele Menschen in der Nähe von Vulkanen?", optionen: ["Weil es dort wärmer ist", "Weil der Boden besonders fruchtbar ist", "Weil Vulkane schön aussehen", "Weil es dort keine Erdbeben gibt"], richtig: 1 }
+    ]
+  },
+  {
+    id: 6,
+    titel: "Wie Bienen Honig machen",
+    kategorie: "Natur & Tiere",
+    text: `Honig ist nicht einfach süßes Wasser aus Blumen. Bis er in unserem Glas landet, steckt viel Arbeit dahinter – und zwar Bienenarbeit. Sammelbienen fliegen von Blüte zu Blüte und saugen mit ihrem Rüssel den Nektar auf. Diesen lagern sie in ihrem Honigmagen, einem speziellen Beutel im Körper. Zurück im Bienenstock übergeben sie den Nektar an andere Bienen, die sogenannten Stockbienen. Diese kauen den Nektar immer wieder und mischen dabei Enzyme dazu. Die Enzyme verändern den Zucker im Nektar. Dann verteilen die Bienen den Nektar in die Waben und fächeln mit ihren Flügeln, um das Wasser zu verdunsten. Aus dem wässrigen Nektar wird so der dickflüssige Honig. Wenn der Honig fertig ist, verschließen die Bienen die Wabe mit einer dünnen Wachsschicht. Für ein einziges Glas Honig müssen Bienen etwa zwei Millionen Blüten besuchen und zusammen ungefähr 150.000 Kilometer zurücklegen. Das entspricht fast vier Mal um die Erde! Kein Wunder, dass Honig so wertvoll ist.`,
+    fragen: [
+      { frage: "Wo lagern Sammelbienen den Nektar?", optionen: ["In ihren Beinen", "In ihrem Honigmagen", "In den Flügeln", "In ihrem Stachel"], richtig: 1 },
+      { frage: "Was tun die Bienen, um das Wasser aus dem Nektar zu entfernen?", optionen: ["Sie erhitzen ihn", "Sie fächeln mit ihren Flügeln", "Sie schütteln die Waben", "Sie pressen ihn aus"], richtig: 1 },
+      { frage: "Wie viele Blüten müssen Bienen für ein Glas Honig besuchen?", optionen: ["Etwa 1.000", "Etwa 50.000", "Etwa 2 Millionen", "Etwa 10 Millionen"], richtig: 2 }
+    ]
+  },
+  {
+    id: 7,
+    titel: "Die geheimnisvolle Flaschenpost",
+    kategorie: "Abenteuer",
+    text: `An einem stürmischen Herbsttag fand Mia eine Flasche am Strand. Sie war grün, verkorkt, und innen steckte ein zusammengerolltes Blatt Papier. Mit zitternden Fingern zog Mia den Zettel heraus. Darauf stand in krakeliger Schrift: „Wer diese Nachricht findet, soll wissen: Ich sitze auf einer kleinen Insel und beobachte die Delfine. Mir geht es gut. Bitte schicke diese Flasche mit einer Antwort zurück ins Meer. Dein Freund Jonas, 12 Jahre alt." Mia war überrascht. Die Nachricht klang nicht nach einem Hilferuf, sondern nach einem neugierigen Jungen, der ein Experiment machte. Sie beschloss, zurückzuschreiben. Sie erzählte Jonas von ihrer Stadt, ihrem Hund Balu und ihrer Lieblingseissorte. Dann steckte sie den Brief in die Flasche und warf sie bei der nächsten Flut ins Meer. Wochen vergingen. Dann, eines Morgens, lag wieder eine grüne Flasche am Strand. Jonas hatte geantwortet! Er lebte auf einer Nordseeinsel und liebte Erdbeere. So begann eine ungewöhnliche Brieffreundschaft über das Meer.`,
+    fragen: [
+      { frage: "Wo fand Mia die Flaschenpost?", optionen: ["Im Wald", "Am Strand", "In einem Fluss", "Im Park"], richtig: 1 },
+      { frage: "Was beobachtete Jonas auf seiner Insel?", optionen: ["Möwen", "Wale", "Delfine", "Robben"], richtig: 2 },
+      { frage: "Welche Lieblingseissorte hatte Jonas?", optionen: ["Schokolade", "Vanille", "Erdbeere", "Zitrone"], richtig: 2 }
+    ]
+  },
+  {
+    id: 8,
+    titel: "Das Weltall und unsere Nachbarplaneten",
+    kategorie: "Wissenschaft",
+    text: `Unser Sonnensystem besteht aus der Sonne und acht Planeten, die sie umkreisen. Der der Sonne nächste Planet ist Merkur. Er ist klein und hat keine Atmosphäre. Deshalb ist es tagsüber über 400 Grad heiß und nachts etwa minus 180 Grad kalt. Die Venus ist der heißeste Planet, obwohl sie nicht am nächsten an der Sonne ist. Ihre dicke Atmosphäre aus Kohlendioxid wirkt wie ein Treibhaus und heizt die Oberfläche auf fast 470 Grad auf. Nach der Erde kommt der Mars, auch der Rote Planet genannt, weil sein Boden viel Eisenoxid enthält – also Rost. Forscher suchen dort nach Spuren von Wasser und Leben. Hinter dem Mars kommen die Gasriesen Jupiter und Saturn. Jupiter ist so groß, dass über tausend Erden hineinpassen würden. Saturn ist bekannt für seine beeindruckenden Ringe aus Eis und Gestein. Ganz am Rand kreisen Uranus und Neptun, die Eisriesen. Neptun ist so weit weg, dass sein Licht über vier Stunden braucht, um die Erde zu erreichen.`,
+    fragen: [
+      { frage: "Welcher Planet ist der heißeste im Sonnensystem?", optionen: ["Merkur", "Venus", "Mars", "Jupiter"], richtig: 1 },
+      { frage: "Warum wird der Mars der Rote Planet genannt?", optionen: ["Wegen seiner Atmosphäre", "Weil er nahe an der Sonne ist", "Weil sein Boden Eisenoxid enthält", "Wegen seiner Vulkane"], richtig: 2 },
+      { frage: "Woraus bestehen die Ringe des Saturn?", optionen: ["Aus Gas", "Aus Staub", "Aus Eis und Gestein", "Aus Metall"], richtig: 2 }
+    ]
+  },
+  {
+    id: 9,
+    titel: "Schokolade – vom Baum zur Tafel",
+    kategorie: "Sachthema",
+    text: `Schokolade wächst nicht im Supermarkt – sie hat eine lange Reise hinter sich. Alles beginnt mit dem Kakaobaum, der in tropischen Ländern wie Ghana, der Elfenbeinküste oder Ecuador wächst. Die Früchte des Kakaobaums sind groß wie Rugbybälle und enthalten weiße Bohnen. Diese Kakaobohnen werden nach der Ernte fermentiert. Das bedeutet, sie liegen einige Tage unter Bananenblättern und gären. Dabei entwickeln sie erst ihren typischen Geschmack. Danach werden die Bohnen getrocknet und in Säcke verpackt. Per Schiff reisen sie nach Europa oder Nordamerika. In den Fabriken werden die Bohnen geröstet, geschält und gemahlen. Dabei entsteht eine zähe Masse, die Kakaomasse. Durch Pressen gewinnt man Kakaobutter und Kakaopulver. Für Schokolade mischt man Kakaomasse mit Zucker, Milchpulver und Kakaobutter und rührt alles stundenlang. Diesen Vorgang nennt man Conchieren. Er macht die Schokolade glatt und zart. Am Ende wird die flüssige Schokolade in Formen gegossen und abgekühlt. Erst dann ist sie fertig zum Genießen.`,
+    fragen: [
+      { frage: "Was passiert mit den Kakaobohnen direkt nach der Ernte?", optionen: ["Sie werden getrocknet", "Sie werden fermentiert", "Sie werden geröstet", "Sie werden gemahlen"], richtig: 1 },
+      { frage: "Was bedeutet Conchieren?", optionen: ["Die Bohnen werden geröstet", "Die Schokolade wird stundenlang gerührt", "Die Bohnen werden geschält", "Die Schokolade wird eingefroren"], richtig: 1 },
+      { frage: "In welchen Ländern wächst der Kakaobaum?", optionen: ["In Deutschland und Frankreich", "In tropischen Ländern wie Ghana und Ecuador", "In Kanada und Russland", "In Japan und China"], richtig: 1 }
+    ]
+  },
+  {
+    id: 10,
+    titel: "Wie ein Fahrrad funktioniert",
+    kategorie: "Technik",
+    text: `Das Fahrrad ist eines der cleversten Fortbewegungsmittel, das je erfunden wurde. Es wandelt menschliche Muskelkraft in Bewegung um – und zwar sehr effizient. Wenn du in die Pedale trittst, dreht sich das vordere Zahnrad, auch Kettenblatt genannt. Über die Kette wird die Kraft auf das hintere Zahnrad, das Ritzel, übertragen. Dieses dreht das Hinterrad und das Fahrrad bewegt sich vorwärts. Die Gangschaltung verändert, wie leicht oder schwer du treten musst. In einem niedrigen Gang dreht sich das Hinterrad langsamer, aber du brauchst weniger Kraft – perfekt für Berge. In einem hohen Gang dreht sich das Rad schneller, aber du musst mehr Kraft aufwenden – ideal für flache Strecken. Die Bremsen funktionieren, indem Bremsbeläge gegen die Felge oder eine spezielle Bremsscheibe drücken und das Rad verlangsamen. Übrigens: Wissenschaftler streiten sich bis heute darüber, warum ein Fahrrad beim Fahren eigentlich stabil bleibt. Es hängt mit dem Kreiseleffekt und der Lenkgeometrie zusammen, aber ganz geklärt ist es nicht. Ein einfaches Fahrrad – und trotzdem voller Geheimnisse!`,
+    fragen: [
+      { frage: "Wie heißt das vordere Zahnrad am Fahrrad?", optionen: ["Ritzel", "Kettenblatt", "Pedal", "Speiche"], richtig: 1 },
+      { frage: "Wann benutzt man einen niedrigen Gang?", optionen: ["Auf flachen Strecken", "Beim Bergabfahren", "Beim Bergauffahren", "Beim Bremsen"], richtig: 2 },
+      { frage: "Was ist am Fahrrad bis heute wissenschaftlich nicht ganz geklärt?", optionen: ["Warum die Kette hält", "Warum es beim Fahren stabil bleibt", "Wie die Bremsen funktionieren", "Wie die Gangschaltung funktioniert"], richtig: 1 }
+    ]
+  },
+  {
+    id: 11,
+    titel: "Das Alte Ägypten und die Pyramiden",
+    kategorie: "Geschichte",
+    text: `Vor über viertausend Jahren erbauten die alten Ägypter riesige Pyramiden in der Wüste. Die größte von ihnen ist die Cheops-Pyramide in Gizeh. Sie war fast 150 Meter hoch und bestand aus etwa 2,3 Millionen Steinblöcken. Jeder Block wog im Durchschnitt zweieinhalb Tonnen – so schwer wie zwei Autos! Wie die Ägypter diese gewaltigen Steine ohne moderne Maschinen bewegen konnten, ist bis heute nicht vollständig geklärt. Wissenschaftler vermuten, dass sie Rampen, Schlitten und die Kraft von tausenden Arbeitern nutzten. Die Pyramiden dienten als Grabstätten für die Pharaonen, die Könige des alten Ägyptens. Die Ägypter glaubten an ein Leben nach dem Tod. Deshalb gaben sie den Toten Schätze, Nahrung und sogar Möbel mit ins Grab. Die Körper der Pharaonen wurden mumifiziert, also durch spezielle Verfahren haltbar gemacht. Im Inneren der Pyramiden gab es geheime Kammern und Gänge, die Grabräuber fernhalten sollten. Trotzdem wurden die meisten Pyramiden im Laufe der Jahrhunderte geplündert.`,
+    fragen: [
+      { frage: "Wie schwer war ein durchschnittlicher Steinblock der Cheops-Pyramide?", optionen: ["Eine halbe Tonne", "Zweieinhalb Tonnen", "Zehn Tonnen", "Fünfzig Kilogramm"], richtig: 1 },
+      { frage: "Warum gaben die Ägypter den Toten Schätze mit ins Grab?", optionen: ["Um Diebe anzulocken", "Weil sie an ein Leben nach dem Tod glaubten", "Weil der Pharao es befahl", "Um die Pyramide zu schmücken"], richtig: 1 },
+      { frage: "Was bedeutet es, einen Körper zu mumifizieren?", optionen: ["Ihn zu verbrennen", "Ihn durch spezielle Verfahren haltbar zu machen", "Ihn in Gold zu hüllen", "Ihn in einem Fluss zu versenken"], richtig: 1 }
+    ]
+  },
+  {
+    id: 12,
+    titel: "Der Regenwald – Grüne Lunge der Erde",
+    kategorie: "Natur & Umwelt",
+    text: `Die tropischen Regenwälder bedecken nur etwa sechs Prozent der Erdoberfläche, aber sie beherbergen mehr als die Hälfte aller Tier- und Pflanzenarten weltweit. Der größte Regenwald ist der Amazonas-Regenwald in Südamerika. Er erstreckt sich über neun Länder und ist fast so groß wie ganz Europa. Der Regenwald ist in Stockwerke aufgeteilt, ähnlich wie ein Hochhaus. Ganz unten auf dem Waldboden ist es dunkel und feucht. Darüber bilden Sträucher und kleine Bäume das Unterholz. Die mittlere Schicht besteht aus den Kronen großer Bäume. Ganz oben ragen einzelne Baumriesen über das Kronendach hinaus und erreichen Höhen von bis zu sechzig Metern. In jeder Schicht leben andere Tiere. Frösche und Insekten bevölkern den Boden, Affen und Papageien turnen in den Baumkronen. Leider wird jede Minute eine Fläche von etwa dreißig Fußballfeldern Regenwald abgeholzt – für Holz, Landwirtschaft oder Bergbau. Wissenschaftler warnen, dass die Zerstörung des Regenwaldes den Klimawandel beschleunigt, weil die Bäume große Mengen Kohlendioxid speichern.`,
+    fragen: [
+      { frage: "Wie viel Prozent der Erdoberfläche bedecken tropische Regenwälder?", optionen: ["Etwa 20 Prozent", "Etwa 6 Prozent", "Etwa 50 Prozent", "Etwa 2 Prozent"], richtig: 1 },
+      { frage: "Wie ist der Regenwald aufgebaut?", optionen: ["In Stockwerke, ähnlich wie ein Hochhaus", "In Ringe, wie ein Baumstamm", "In Zonen nach Temperatur", "In Felder wie ein Schachbrett"], richtig: 0 },
+      { frage: "Warum beschleunigt die Abholzung den Klimawandel?", optionen: ["Weil Tiere vertrieben werden", "Weil die Bäume Kohlendioxid speichern", "Weil es mehr regnet", "Weil der Boden austrocknet"], richtig: 1 }
+    ]
+  }
+];
+
+// ===================== APP STATE =====================
+let currentTextIndex = null;
+let currentQuestionIndex = 0;
+let score = 0;
+let speed = 1;
+let hasListened = false;
+let synth = window.speechSynthesis;
+let utterance = null;
+let isSpeaking = false;
+let progressInterval = null;
+let speakStartTime = 0;
+let estimatedDuration = 0;
+let scores = JSON.parse(localStorage.getItem('hv-scores') || '{}');
+
+// ===================== NAVIGATION =====================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function goHome() {
+  stopSpeech();
+  renderTextList();
+  showScreen('start');
+}
+
+// ===================== TEXT LIST =====================
+function renderTextList() {
+  const list = document.getElementById('text-list');
+  list.innerHTML = '';
+  texte.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'text-card';
+    card.onclick = () => selectText(i);
+    let badge = '';
+    if (scores[t.id] !== undefined) {
+      const total = t.fragen.length;
+      const s = scores[t.id];
+      const cls = s === total ? 'good' : s >= total / 2 ? 'ok' : 'bad';
+      badge = `<span class="score-badge ${cls}">${s}/${total}</span>`;
+    }
+    card.innerHTML = `
+      ${badge}
+      <div class="card-title">${t.titel}</div>
+      <span class="card-tag">${t.kategorie}</span>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ===================== SELECT TEXT =====================
+function selectText(index) {
+  currentTextIndex = index;
+  currentQuestionIndex = 0;
+  score = 0;
+  hasListened = false;
+  const t = texte[index];
+  document.getElementById('player-title').textContent = t.titel;
+  document.getElementById('btn-to-quiz').disabled = true;
+  document.getElementById('status-text').textContent = 'Drücke Play zum Anhören';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('btn-play').textContent = '▶';
+  updateSpeedButtons();
+  showScreen('player');
+}
+
+// ===================== SPEED =====================
+function setSpeed(s) {
+  speed = s;
+  updateSpeedButtons();
+}
+
+function updateSpeedButtons() {
+  document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.classList.toggle('active', parseFloat(btn.dataset.speed) === speed);
+  });
+}
+
+// ===================== SPEECH =====================
+function getVoice() {
+  const voices = synth.getVoices();
+  // Prefer a German voice
+  let v = voices.find(v => v.lang.startsWith('de') && v.name.toLowerCase().includes('female'));
+  if (!v) v = voices.find(v => v.lang.startsWith('de'));
+  if (!v) v = voices.find(v => v.lang.startsWith('de-'));
+  return v || voices[0];
+}
+
+function estimateDurationMs(text, rate) {
+  // Average ~150 words/min at rate=1 in German
+  const words = text.split(/\s+/).length;
+  const minutes = words / (150 * rate);
+  return minutes * 60 * 1000;
+}
+
+function speak(text, onEnd, statusId, progressId, btnId) {
+  stopSpeech();
+  utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'de-DE';
+  utterance.rate = speed;
+  const voice = getVoice();
+  if (voice) utterance.voice = voice;
+
+  estimatedDuration = estimateDurationMs(text, speed);
+  speakStartTime = Date.now();
+
+  const statusEl = document.getElementById(statusId);
+  const progressEl = document.getElementById(progressId);
+  const btnEl = document.getElementById(btnId);
+
+  isSpeaking = true;
+  btnEl.textContent = '⏸';
+  statusEl.textContent = 'Wird vorgelesen…';
+
+  progressInterval = setInterval(() => {
+    const elapsed = Date.now() - speakStartTime;
+    const pct = Math.min(100, (elapsed / estimatedDuration) * 100);
+    progressEl.style.width = pct + '%';
+  }, 200);
+
+  utterance.onend = () => {
+    clearInterval(progressInterval);
+    progressEl.style.width = '100%';
+    isSpeaking = false;
+    btnEl.textContent = '▶';
+    statusEl.textContent = 'Fertig! ✓';
+    if (onEnd) onEnd();
+  };
+
+  utterance.onerror = (e) => {
+    if (e.error === 'canceled') return;
+    clearInterval(progressInterval);
+    isSpeaking = false;
+    btnEl.textContent = '▶';
+    statusEl.textContent = 'Fehler bei der Sprachausgabe.';
+  };
+
+  synth.speak(utterance);
+}
+
+function stopSpeech() {
+  if (progressInterval) clearInterval(progressInterval);
+  synth.cancel();
+  isSpeaking = false;
+}
+
+// ===================== PLAYER CONTROLS =====================
+function togglePlay() {
+  if (isSpeaking) {
+    stopSpeech();
+    document.getElementById('btn-play').textContent = '▶';
+    document.getElementById('status-text').textContent = 'Pausiert – drücke Play zum Fortsetzen';
+    return;
+  }
+  const t = texte[currentTextIndex];
+  speak(t.text, () => {
+    hasListened = true;
+    document.getElementById('btn-to-quiz').disabled = false;
+  }, 'status-text', 'progress-fill', 'btn-play');
+}
+
+// ===================== QUIZ =====================
+function goToQuiz() {
+  stopSpeech();
+  currentQuestionIndex = 0;
+  score = 0;
+  renderQuestion();
+  showScreen('quiz');
+}
+
+function renderQuestion() {
+  const t = texte[currentTextIndex];
+  const q = t.fragen[currentQuestionIndex];
+  document.getElementById('q-counter').textContent = `Frage ${currentQuestionIndex + 1} von ${t.fragen.length}`;
+  document.getElementById('q-text').textContent = q.frage;
+  document.getElementById('btn-next-q').style.display = 'none';
+
+  const container = document.getElementById('q-options');
+  container.innerHTML = '';
+  q.optionen.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = opt;
+    btn.onclick = () => checkAnswer(i);
+    container.appendChild(btn);
+  });
+}
+
+function checkAnswer(selected) {
+  const t = texte[currentTextIndex];
+  const q = t.fragen[currentQuestionIndex];
+  const buttons = document.querySelectorAll('#q-options .option-btn');
+
+  buttons.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === q.richtig) btn.classList.add('correct');
+    if (i === selected && i !== q.richtig) btn.classList.add('wrong');
+  });
+
+  if (selected === q.richtig) score++;
+
+  // Show next button
+  const isLast = currentQuestionIndex >= t.fragen.length - 1;
+  const nextBtn = document.getElementById('btn-next-q');
+  nextBtn.textContent = isLast ? 'Ergebnis anzeigen →' : 'Weiter →';
+  nextBtn.style.display = 'inline-flex';
+}
+
+function nextQuestion() {
+  const t = texte[currentTextIndex];
+  if (currentQuestionIndex < t.fragen.length - 1) {
+    currentQuestionIndex++;
+    renderQuestion();
+  } else {
+    showResult();
+  }
+}
+
+// ===================== REPLAY FROM QUIZ =====================
+function replayFromQuiz() {
+  stopSpeech();
+  const t = texte[currentTextIndex];
+  document.getElementById('replay-title').textContent = t.titel;
+  document.getElementById('replay-status').textContent = 'Drücke Play zum Anhören';
+  document.getElementById('replay-progress-fill').style.width = '0%';
+  document.getElementById('btn-replay').textContent = '▶';
+  updateSpeedButtons();
+  showScreen('replay');
+}
+
+function toggleReplay() {
+  if (isSpeaking) {
+    stopSpeech();
+    document.getElementById('btn-replay').textContent = '▶';
+    document.getElementById('replay-status').textContent = 'Pausiert – drücke Play zum Fortsetzen';
+    return;
+  }
+  const t = texte[currentTextIndex];
+  speak(t.text, null, 'replay-status', 'replay-progress-fill', 'btn-replay');
+}
+
+function backToQuiz() {
+  stopSpeech();
+  showScreen('quiz');
+  // Question state is preserved – user returns to same question
+}
+
+// ===================== RESULT =====================
+function showResult() {
+  const t = texte[currentTextIndex];
+  const total = t.fragen.length;
+  const circle = document.getElementById('result-circle');
+  const msg = document.getElementById('result-msg');
+  const sub = document.getElementById('result-sub');
+
+  circle.textContent = `${score}/${total}`;
+
+  if (score === total) {
+    circle.className = 'result-circle good';
+    msg.textContent = 'Super gemacht! 🎉';
+    sub.textContent = 'Alle Fragen richtig beantwortet!';
+  } else if (score >= total / 2) {
+    circle.className = 'result-circle ok';
+    msg.textContent = 'Gut gemacht! 👍';
+    sub.textContent = 'Die meisten Fragen waren richtig.';
+  } else {
+    circle.className = 'result-circle bad';
+    msg.textContent = 'Versuch es nochmal! 💪';
+    sub.textContent = 'Hör dir den Text nochmal genau an.';
+  }
+
+  // Save score
+  scores[t.id] = score;
+  localStorage.setItem('hv-scores', JSON.stringify(scores));
+
+  showScreen('result');
+}
+
+// ===================== INIT =====================
+// Wait for voices to load
+if (synth.onvoiceschanged !== undefined) {
+  synth.onvoiceschanged = () => {};
+}
+// Trigger voice loading
+synth.getVoices();
+
+renderTextList();
+</script>
+</body>
+</html>
