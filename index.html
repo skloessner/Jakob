@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lese-Verständnis</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Tahoma, sans-serif;
+    background: linear-gradient(135deg, #fef3c7 0%, #c7f5d3 50%, #cfe9ff 100%);
+    min-height: 100vh;
+    color: #2b2b2b;
+    padding: 20px;
+  }
+  .app {
+    max-width: 850px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.10);
+    padding: 28px 36px 36px;
+  }
+  h1 {
+    font-size: 2rem;
+    color: #2563eb;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    color: #555;
+    margin-bottom: 22px;
+    font-size: 1.05rem;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* Start screen */
+  .text-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .text-card {
+    background: #f3f8ff;
+    border: 2px solid #cfe2ff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-align: left;
+    font-size: 1rem;
+    color: #1e3a8a;
+    font-weight: 600;
+  }
+  .text-card:hover {
+    background: #e0eeff;
+    transform: translateY(-2px);
+    border-color: #60a5fa;
+  }
+  .text-card .topic {
+    display: block;
+    font-size: 0.78rem;
+    color: #666;
+    font-weight: 400;
+    margin-top: 4px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 22px;
+  }
+  button.primary {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 12px 26px;
+    border-radius: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.18s;
+  }
+  button.primary:hover { background: #1d4ed8; }
+  button.secondary {
+    background: #e5e7eb;
+    color: #1f2937;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.18s;
+  }
+  button.secondary:hover { background: #d1d5db; }
+
+  /* Reading screen */
+  .text-title {
+    font-size: 1.5rem;
+    color: #1e3a8a;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .reading-text {
+    font-size: 1.08rem;
+    line-height: 1.65;
+    background: #fffdf6;
+    border: 1px solid #f0e7c8;
+    padding: 22px 26px;
+    border-radius: 12px;
+    margin-bottom: 18px;
+    white-space: pre-line;
+  }
+  .reading-text p { margin-bottom: 12px; }
+
+  /* Question screen */
+  .progress {
+    text-align: center;
+    color: #555;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+  }
+  .question {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 16px;
+  }
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .option {
+    background: #f9fafb;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 1rem;
+    transition: all 0.15s;
+  }
+  .option:hover:not(.disabled) {
+    background: #eef4ff;
+    border-color: #93c5fd;
+  }
+  .option.selected { border-color: #2563eb; background: #eff6ff; }
+  .option.correct {
+    border-color: #16a34a;
+    background: #dcfce7;
+    color: #14532d;
+    font-weight: 600;
+  }
+  .option.wrong {
+    border-color: #dc2626;
+    background: #fee2e2;
+    color: #7f1d1d;
+  }
+  .option.disabled { cursor: default; }
+
+  .feedback {
+    margin: 14px 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 1.05rem;
+  }
+  .feedback.right {
+    background: #dcfce7;
+    color: #14532d;
+    border: 2px solid #86efac;
+  }
+  .feedback.wrong {
+    background: #fee2e2;
+    color: #7f1d1d;
+    border: 2px solid #fca5a5;
+  }
+
+  /* Result screen */
+  .result-card {
+    text-align: center;
+    padding: 30px 20px;
+  }
+  .result-emoji {
+    font-size: 4rem;
+    margin-bottom: 10px;
+  }
+  .result-score {
+    font-size: 1.6rem;
+    color: #1e3a8a;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .result-message {
+    font-size: 1.1rem;
+    color: #444;
+    margin-bottom: 22px;
+  }
+  .stars {
+    font-size: 2.2rem;
+    margin: 10px 0 18px;
+    letter-spacing: 6px;
+  }
+  .star-on { color: #fbbf24; }
+  .star-off { color: #d1d5db; }
+
+  @media (max-width: 600px) {
+    .app { padding: 18px; }
+    h1 { font-size: 1.5rem; }
+    .reading-text { padding: 16px; font-size: 1rem; }
+    .text-title { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Lese-Verständnis</h1>
+  <p class="subtitle">Lies den Text in Ruhe — danach beantworte die Fragen.</p>
+
+  <!-- Start Screen -->
+  <div id="screen-start" class="screen active">
+    <div class="actions">
+      <button class="primary" onclick="startRandom()">Zufälligen Text starten</button>
+    </div>
+    <h3 style="margin-top: 26px; color: #374151;">Oder wähle einen Text:</h3>
+    <div class="text-list" id="textList"></div>
+  </div>
+
+  <!-- Reading Screen -->
+  <div id="screen-reading" class="screen">
+    <h2 class="text-title" id="readingTitle"></h2>
+    <div class="reading-text" id="readingContent"></div>
+    <div class="actions">
+      <button class="secondary" onclick="goHome()">Zurück</button>
+      <button class="primary" onclick="startQuestions()">Ich bin fertig — Fragen beantworten</button>
+    </div>
+  </div>
+
+  <!-- Question Screen -->
+  <div id="screen-question" class="screen">
+    <div class="progress" id="progress"></div>
+    <div class="question" id="questionText"></div>
+    <div class="options" id="options"></div>
+    <div id="feedback"></div>
+    <div class="actions">
+      <button class="secondary" onclick="rereadText()">Text noch mal lesen</button>
+      <button class="primary" id="nextBtn" style="display:none;" onclick="nextQuestion()">Weiter</button>
+    </div>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="screen-result" class="screen">
+    <div class="result-card">
+      <div class="result-emoji" id="resultEmoji"></div>
+      <div class="result-score" id="resultScore"></div>
+      <div class="stars" id="resultStars"></div>
+      <div class="result-message" id="resultMessage"></div>
+      <div class="actions">
+        <button class="primary" onclick="goHome()">Zur Übersicht</button>
+        <button class="secondary" onclick="startRandom()">Nächster Text</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEXTS = [
+  {
+    title: "Die schlauen Krähen",
+    topic: "Tiere",
+    text: `Krähen gehören zu den klügsten Vögeln der Welt. Sie können Werkzeuge benutzen, sich Gesichter merken und sogar einfache Probleme lösen. Forscher haben herausgefunden, dass Krähen kleine Stöcke biegen, um Insekten aus engen Löchern zu fischen. Damit verhalten sie sich ähnlich wie Schimpansen.
+
+Krähen leben fast überall auf der Erde, außer in der Antarktis. In Städten findet man sie besonders oft, weil es dort viele Essensreste gibt. Eine bekannte Krähenart ist die Aaskrähe. Sie ist schwarz oder grau und hat einen kräftigen Schnabel.
+
+Besonders erstaunlich ist das Gedächtnis der Krähen. Wenn ein Mensch eine Krähe einmal ärgert, erkennt sie ihn auch nach Jahren wieder. Sie warnt sogar andere Krähen vor dieser Person. So entstehen richtige Freund- und Feindschaften zwischen Krähen und Menschen.
+
+Krähen leben oft in großen Gruppen, die Schwärme genannt werden. Abends fliegen sie zu ihren Schlafplätzen — manchmal sind das hunderte Vögel auf einem einzigen Baum. Sie unterhalten sich dabei mit verschiedenen Rufen. Wissenschaftler glauben, dass die Krähen-Sprache mehrere Bedeutungen hat. Es gibt Warnrufe, Lockrufe und Rufe, die wahrscheinlich „Hier ist Futter" bedeuten.
+
+In manchen Versuchen haben Krähen sogar gelernt, Münzen in einen Automaten zu werfen, um eine Belohnung zu bekommen. Andere Krähen legen Nüsse auf die Straße, damit Autos darüber fahren und die harte Schale aufknacken. Wenn die Ampel rot wird, holen die Krähen die geöffneten Nüsse einfach wieder ab.
+
+Krähen sind also keine gewöhnlichen Vögel — sie sind echte kleine Genies mit Federn.`,
+    questions: [
+      {
+        q: "Was machen Krähen, um an Insekten in engen Löchern zu kommen?",
+        options: ["Sie warten, bis die Insekten herauskommen", "Sie biegen kleine Stöcke und benutzen sie als Werkzeug", "Sie graben das Loch mit dem Schnabel auf", "Sie locken die Insekten mit Futter heraus"],
+        correct: 1
+      },
+      {
+        q: "Warum legen manche Krähen Nüsse auf die Straße?",
+        options: ["Um Autos zu ärgern", "Damit die Autos die Nüsse knacken", "Um andere Tiere zu warnen", "Damit die Nüsse weicher werden"],
+        correct: 1
+      },
+      {
+        q: "Was passiert, wenn ein Mensch eine Krähe ärgert?",
+        options: ["Die Krähe vergisst es schnell wieder", "Die Krähe erkennt ihn auch nach Jahren wieder", "Die Krähe greift ihn sofort an", "Die Krähe fliegt für immer weg"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Im Regenwald",
+    topic: "Natur",
+    text: `Der Regenwald ist einer der spannendsten Orte der Welt. Hier ist es das ganze Jahr über warm und feucht. Es regnet sehr oft — manchmal jeden Tag. Deshalb wachsen dort riesige Bäume und sehr viele verschiedene Pflanzen.
+
+Im Regenwald leben Millionen von Tieren. Bunte Papageien fliegen durch die Luft, Affen schwingen von Ast zu Ast und Schmetterlinge so groß wie Hände flattern zwischen den Blättern. In den Flüssen schwimmen Piranhas und sogar pinkfarbene Flussdelfine.
+
+Der Regenwald ist in mehrere Stockwerke aufgeteilt. Ganz unten ist der Boden. Hier ist es dunkel, weil die hohen Bäume das Sonnenlicht aufhalten. Dann kommt das Unterholz mit kleinen Pflanzen und jungen Bäumen. Darüber liegt das Kronendach — das sind die Spitzen der Bäume, die sich wie ein grünes Dach ausbreiten. Hier leben die meisten Tiere. Über dem Kronendach ragen einige besonders hohe Bäume noch heraus.
+
+Der größte Regenwald der Welt ist der Amazonas-Regenwald in Südamerika. Er ist so groß wie ganz Westeuropa. Manche Forscher nennen ihn die „grüne Lunge der Erde", weil die Bäume sehr viel Sauerstoff produzieren. Diesen Sauerstoff brauchen wir Menschen zum Atmen.
+
+Leider ist der Regenwald in Gefahr. Jeden Tag werden große Flächen abgeholzt, um Platz für Felder oder Straßen zu schaffen. Wenn die Bäume verschwinden, verlieren auch die Tiere ihr Zuhause. Viele Menschen versuchen heute, den Regenwald zu schützen — zum Beispiel, indem sie keine Möbel aus Tropenholz kaufen.
+
+Der Regenwald ist ein wahres Wunder der Natur. Es lohnt sich, ihn zu kennen und zu bewahren.`,
+    questions: [
+      {
+        q: "Wie nennt man manchmal den Amazonas-Regenwald?",
+        options: ["Grünes Herz der Erde", "Grüne Lunge der Erde", "Grüner Garten der Welt", "Grüner Schatz der Welt"],
+        correct: 1
+      },
+      {
+        q: "Warum ist es am Boden des Regenwaldes oft dunkel?",
+        options: ["Weil dort keine Pflanzen wachsen", "Weil die hohen Bäume das Licht aufhalten", "Weil es dort immer regnet", "Weil dort viele Wolken sind"],
+        correct: 1
+      },
+      {
+        q: "Was kann jeder tun, um den Regenwald zu schützen?",
+        options: ["Mehr Bananen essen", "Keine Möbel aus Tropenholz kaufen", "Öfter in den Zoo gehen", "Mehr Bücher über den Regenwald lesen"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Mias geheime Schatzkarte",
+    topic: "Abenteuer",
+    text: `Es war ein sonniger Samstagmorgen, als Mia auf dem Dachboden ihrer Großeltern eine alte Holzkiste entdeckte. Sie hob den Deckel — und in der Kiste lag ein vergilbtes Stück Papier. Eine Schatzkarte!
+
+Auf der Karte waren ein großer Baum, ein Bach und ein Stein mit einem roten Kreuz eingezeichnet. „Das muss der Garten von Opa sein!", flüsterte Mia aufgeregt. Schnell rannte sie zu ihrem besten Freund Leo. Zusammen wollten sie den Schatz finden.
+
+Mit einer kleinen Schaufel und einer Taschenlampe machten sich die beiden auf den Weg. Im Garten stand tatsächlich ein riesiger alter Apfelbaum. Daneben plätscherte ein Bach. Aber wo war der Stein mit dem Kreuz?
+
+„Schau mal dort!", rief Leo plötzlich. Hinter einem Busch lag ein flacher Stein, halb von Moos bedeckt. Auf der Oberseite konnten sie deutlich ein verblasstes rotes Kreuz erkennen. Aufgeregt begannen sie zu graben.
+
+Nach einigen Minuten stieß Mias Schaufel auf etwas Hartes. Vorsichtig zogen sie eine kleine Blechdose aus der Erde. Die beiden Kinder hielten den Atem an, als sie den Deckel öffneten. In der Dose lagen alte Fotos, ein paar Münzen aus einem fernen Land und ein Brief.
+
+Mia las den Brief vor: „Lieber Finder, dieser Schatz wurde von mir, Karl, im Jahr 1958 vergraben. Ich war damals zehn Jahre alt. Ich hoffe, du hast viel Spaß mit meinen Erinnerungen!"
+
+Mia und Leo sahen sich an und lachten. Es war kein Schatz aus Gold — aber ein Schatz aus Geschichten. Und das war fast noch besser. Sie nahmen die Dose mit nach Hause und erzählten Mias Großvater von ihrem Fund. „Karl?", sagte Opa und lächelte. „Das war mein bester Freund von früher!"`,
+    questions: [
+      {
+        q: "Wo fand Mia die Schatzkarte?",
+        options: ["Im Keller", "Auf dem Dachboden", "Im Garten", "In der Schule"],
+        correct: 1
+      },
+      {
+        q: "Was war wirklich in der Blechdose?",
+        options: ["Goldmünzen und Edelsteine", "Alte Fotos, Münzen und ein Brief", "Eine zweite Schatzkarte", "Ein Spielzeugauto"],
+        correct: 1
+      },
+      {
+        q: "Wer hatte den Schatz vor langer Zeit vergraben?",
+        options: ["Mias Großvater selbst", "Ein Pirat", "Karl, ein Freund von Mias Opa", "Niemand weiß es"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Vulkane — Feuer aus der Erde",
+    topic: "Wissen",
+    text: `Tief unter der Erdoberfläche ist es richtig heiß. Dort gibt es geschmolzenes Gestein, das man Magma nennt. Manchmal findet das Magma einen Weg nach oben — durch einen Riss oder eine Öffnung in der Erdkruste. Wenn es ausbricht, sprechen wir von einem Vulkan.
+
+Sobald das Magma aus dem Vulkan herausfließt, nennt man es Lava. Lava kann über 1000 Grad heiß sein. Sie fließt wie ein leuchtend roter Fluss den Berg hinunter und kühlt langsam ab. Mit der Zeit wird sie zu hartem schwarzem Stein.
+
+Es gibt verschiedene Arten von Vulkanen. Manche brechen ruhig aus, mit langen Lavaströmen. Andere explodieren mit einem lauten Knall und schleudern Asche und Steine in die Luft. Solche Ausbrüche können sehr gefährlich sein. Die Asche steigt manchmal kilometerhoch in den Himmel und verdunkelt die Sonne.
+
+Auf der Welt gibt es etwa 1500 aktive Vulkane. Aktiv heißt, dass sie irgendwann wieder ausbrechen können. Viele davon liegen rund um den Pazifischen Ozean. Diese Region nennt man auch „Feuerring".
+
+Ein berühmter Vulkan ist der Vesuv in Italien. Vor fast 2000 Jahren brach er aus und begrub die Stadt Pompeji unter Asche. Forscher haben dort später vieles entdeckt, was uns zeigt, wie die Menschen damals lebten.
+
+Aber Vulkane sind nicht nur gefährlich. Vulkanasche macht den Boden in der Nähe sehr fruchtbar. Deshalb wachsen dort besonders gut Pflanzen. Auch viele schöne Inseln, wie Hawaii, sind aus Vulkanen entstanden.
+
+Vulkane zeigen uns, dass unsere Erde lebt — auch wenn sie uns dabei manchmal Angst macht.`,
+    questions: [
+      {
+        q: "Wie heißt geschmolzenes Gestein, solange es noch unter der Erde ist?",
+        options: ["Lava", "Magma", "Asche", "Stein"],
+        correct: 1
+      },
+      {
+        q: "Was passierte vor fast 2000 Jahren mit der Stadt Pompeji?",
+        options: ["Sie wurde von einem Erdbeben zerstört", "Sie wurde von einer Flutwelle überspült", "Sie wurde unter Vulkanasche begraben", "Sie wurde von Feinden erobert"],
+        correct: 2
+      },
+      {
+        q: "Warum ist der Boden in der Nähe von Vulkanen oft besonders fruchtbar?",
+        options: ["Weil es dort mehr regnet", "Weil die Vulkanasche den Boden gut macht", "Weil dort mehr Sonne scheint", "Weil dort niemand wohnt"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Delfine — Spielende Schwimmer",
+    topic: "Tiere",
+    text: `Delfine gehören zu den beliebtesten Tieren im Meer. Obwohl sie wie Fische aussehen, sind sie keine Fische — sondern Säugetiere. Das bedeutet: Delfine atmen Luft, müssen regelmäßig auftauchen und bekommen lebende Junge, die mit Milch gesäugt werden.
+
+Es gibt viele verschiedene Arten von Delfinen. Der bekannteste ist der Große Tümmler. Er kann bis zu vier Meter lang werden und ist meistens grau gefärbt. Delfine leben in fast allen Meeren der Welt, am liebsten dort, wo das Wasser nicht zu kalt ist.
+
+Delfine sind sehr klug und neugierig. Sie spielen gerne mit Tang, mit Luftblasen oder sogar mit anderen Tieren. Manchmal reiten sie auf den Wellen, die ein großes Schiff macht. Forscher beobachten, dass Delfine sich gegenseitig Tricks beibringen können — fast so, wie es Kinder im Schulhof tun.
+
+Delfine leben in Gruppen, die man Schulen nennt. In einer Schule können zehn bis hundert Tiere zusammen sein. Sie unterhalten sich mit Klick- und Pfeiflauten. Jeder Delfin hat sogar einen eigenen Pfeifton — wie einen Namen. Wenn er gerufen wird, antwortet er.
+
+Beim Jagen helfen sich Delfine gegenseitig. Eine Gruppe treibt zum Beispiel einen Fischschwarm zusammen, während die anderen die Fische fangen. So bekommen alle etwas zu fressen.
+
+Delfine sind sehr freundlich gegenüber Menschen. Es gibt viele Geschichten von Delfinen, die Schwimmer in Schwierigkeiten gerettet haben. Sie schoben die Menschen sanft an die Oberfläche oder verjagten sogar Haie.
+
+Leider sind viele Delfine in Gefahr. Plastikmüll und Fischernetze im Meer machen ihnen das Leben schwer. Wenn wir gut auf das Meer aufpassen, können auch unsere Enkel diese klugen Tiere noch beobachten.`,
+    questions: [
+      {
+        q: "Warum sind Delfine keine Fische?",
+        options: ["Weil sie zu groß sind", "Weil sie Säugetiere sind und Luft atmen", "Weil sie im Salzwasser leben", "Weil sie schnell schwimmen"],
+        correct: 1
+      },
+      {
+        q: "Wie nennt man eine Gruppe von Delfinen?",
+        options: ["Herde", "Rudel", "Schule", "Schwarm"],
+        correct: 2
+      },
+      {
+        q: "Was ist bei jedem Delfin ähnlich wie ein Name?",
+        options: ["Sein Pfeifton", "Sein Aussehen", "Seine Farbe", "Seine Größe"],
+        correct: 0
+      }
+    ]
+  },
+  {
+    title: "Die Wikinger",
+    topic: "Geschichte",
+    text: `Vor mehr als 1000 Jahren lebten in Nordeuropa die Wikinger. Ihre Heimat war hauptsächlich das, was wir heute Norwegen, Schweden und Dänemark nennen. Die Wikinger waren mutige Seefahrer, geschickte Handwerker und manchmal auch gefürchtete Krieger.
+
+Berühmt sind die Wikinger vor allem für ihre Schiffe. Sie bauten lange, schmale Boote aus Holz, die man Drachenschiffe nannte. Vorne am Schiff war oft ein geschnitzter Drachenkopf. Mit diesen Schiffen konnten sie sowohl auf hoher See fahren als auch in flachen Flüssen weit ins Land hineinrudern.
+
+Die Wikinger reisten viel weiter, als man lange dachte. Sie segelten nach England, Frankreich, in den Mittelmeerraum und sogar bis nach Amerika — ungefähr 500 Jahre vor Christoph Kolumbus. Auf Island und Grönland gründeten sie kleine Siedlungen.
+
+Im Alltag waren die meisten Wikinger Bauern. Sie hielten Schafe, Kühe und Hühner und bauten Roggen und Gerste an. Aus der Gerste machten sie Brot und ein Getränk, das ähnlich wie Bier war. Die Häuser bestanden aus Holz und hatten ein Dach aus Gras. In der Mitte des Hauses brannte immer ein Feuer.
+
+Die Kinder der Wikinger arbeiteten oft schon früh auf dem Hof mit. Aber sie hatten auch Zeit zum Spielen. Sie liebten Brettspiele und kleine Holzfiguren. Mit acht oder neun Jahren lernten Jungen das Schwimmen, Reiten und manchmal auch das Kämpfen.
+
+Die Wikinger hatten ihre eigene Schrift. Sie nannten ihre Buchstaben Runen. Die Runen wurden in Holz oder Stein geritzt. So erzählten sie Geschichten oder erinnerten an Verstorbene. Auch heute kann man in Skandinavien noch viele alte Runensteine finden.
+
+Die Zeit der Wikinger endete vor etwa 1000 Jahren — aber ihre Geschichten sind bis heute spannend.`,
+    questions: [
+      {
+        q: "Wie nannte man die berühmten Schiffe der Wikinger?",
+        options: ["Adlerschiffe", "Drachenschiffe", "Wolfsschiffe", "Sturmschiffe"],
+        correct: 1
+      },
+      {
+        q: "Wie nannten die Wikinger ihre Schriftzeichen?",
+        options: ["Runen", "Glyphen", "Lettern", "Zeichen"],
+        correct: 0
+      },
+      {
+        q: "Wohin segelten die Wikinger ungefähr 500 Jahre vor Christoph Kolumbus?",
+        options: ["Nach Afrika", "Nach Amerika", "Nach Australien", "Nach Indien"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Die Sonne — unser nächster Stern",
+    topic: "Wissen",
+    text: `Wenn du tagsüber nach draußen gehst, siehst du sie meistens am Himmel: die Sonne. Sie wirkt wie ein heller Ball — aber in Wirklichkeit ist die Sonne ein riesiger Stern. Sie ist nur deshalb so groß und hell zu sehen, weil sie näher an uns dran ist als alle anderen Sterne.
+
+Die Sonne ist eine gewaltige Kugel aus glühend heißen Gasen. An ihrer Oberfläche ist es etwa 5500 Grad heiß. Im Inneren wird es noch viel heißer — bis zu 15 Millionen Grad. Solche Temperaturen können wir uns kaum vorstellen.
+
+Ohne die Sonne gäbe es kein Leben auf der Erde. Pflanzen brauchen das Sonnenlicht, um zu wachsen. Tiere und Menschen ernähren sich von Pflanzen oder von Tieren, die Pflanzen fressen. Außerdem sorgt die Sonne dafür, dass es auf der Erde warm genug ist. Ohne Sonne wäre unsere Erde ein eiskalter, dunkler Planet.
+
+Die Sonne ist auch der Mittelpunkt unseres Sonnensystems. Acht Planeten kreisen um sie herum. Die Erde ist der dritte davon. Andere Planeten sind zum Beispiel der heiße Merkur, der riesige Jupiter oder der Saturn mit seinen Ringen.
+
+Die Sonne erscheint uns sehr groß — aber sie ist nur ein durchschnittlich großer Stern. Im Weltall gibt es Sterne, die hundert oder tausend Mal größer sind. Sie wirken nur so klein, weil sie so weit weg sind.
+
+Auch wenn die Sonne wichtig ist, darf man sie nicht direkt anschauen. Ihr Licht ist zu stark und kann die Augen verletzen. Auch von ihrer Strahlung sollte man sich schützen — zum Beispiel mit Sonnencreme oder einer Mütze.
+
+Die Sonne wird übrigens noch viele Milliarden Jahre weiterleuchten. Wir müssen uns also keine Sorgen machen, dass es plötzlich dunkel wird.`,
+    questions: [
+      {
+        q: "Was ist die Sonne in Wirklichkeit?",
+        options: ["Ein Planet", "Ein Stern", "Ein Mond", "Eine Galaxie"],
+        correct: 1
+      },
+      {
+        q: "Warum erscheint uns die Sonne so groß?",
+        options: ["Weil sie der größte Stern ist", "Weil sie näher an uns dran ist als andere Sterne", "Weil sie heißer als andere Sterne ist", "Weil sie heller als andere Sterne ist"],
+        correct: 1
+      },
+      {
+        q: "Welcher Planet ist die Erde von der Sonne aus gezählt?",
+        options: ["Der erste", "Der zweite", "Der dritte", "Der vierte"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Die fleißigen Bienen",
+    topic: "Tiere",
+    text: `Bienen sind kleine Insekten — aber sie haben eine große Aufgabe. Ohne sie hätten wir viel weniger Obst und Gemüse. Wenn eine Biene von Blüte zu Blüte fliegt, bleibt feiner Blütenstaub an ihren Beinen kleben. So bringt sie den Blütenstaub von einer Blüte zur nächsten. Erst dann können daraus Äpfel, Kirschen oder Erdbeeren wachsen. Diesen wichtigen Vorgang nennt man Bestäubung.
+
+In einem Bienenstock leben tausende Bienen zusammen. Sie haben ganz verschiedene Aufgaben. Die Bienenkönigin ist die wichtigste. Sie legt jeden Tag bis zu 2000 Eier. Aus den Eiern schlüpfen junge Bienen.
+
+Die Arbeiterinnen sind alle Weibchen. Sie sammeln Nektar und Pollen, bauen die Waben aus Wachs, putzen den Stock und kümmern sich um die Larven. Die wenigen Männchen heißen Drohnen. Sie machen kaum Arbeit und werden im Spätsommer aus dem Stock vertrieben.
+
+Wenn eine Biene eine besonders gute Blumenwiese findet, fliegt sie zurück in den Stock und „erzählt" den anderen davon — und zwar mit einem Tanz! Sie führt eine Art Wackeltanz auf. Aus dem Tanz können die anderen Bienen lesen, in welche Richtung und wie weit sie fliegen müssen.
+
+Aus dem gesammelten Nektar machen die Bienen Honig. Sie speichern ihn in den Waben. Im Winter, wenn keine Blumen blühen, ernähren sich die Bienen davon. Imker nehmen einen Teil des Honigs für die Menschen, lassen aber genug für die Bienen übrig.
+
+Heute haben es Bienen schwer. Pflanzengifte, weniger Wiesen und Krankheiten machen ihnen zu schaffen. Wir können den Bienen helfen, indem wir bienenfreundliche Blumen wie Lavendel oder Klee in den Garten pflanzen.
+
+Bienen sind also nicht nur fleißig — sie sind unentbehrlich für die Natur und für uns Menschen.`,
+    questions: [
+      {
+        q: "Wie nennt man es, wenn Bienen Blütenstaub von einer Blüte zur anderen tragen?",
+        options: ["Bestäubung", "Befruchtung", "Versorgung", "Beschäftigung"],
+        correct: 0
+      },
+      {
+        q: "Wie sagen Bienen anderen Bienen, wo gute Blumen sind?",
+        options: ["Sie summen besonders laut", "Sie machen einen Wackeltanz", "Sie fliegen voraus", "Sie schreiben es in den Stock"],
+        correct: 1
+      },
+      {
+        q: "Was können wir tun, um Bienen zu helfen?",
+        options: ["Mehr Honig kaufen", "Bienenfreundliche Blumen pflanzen", "Im Garten viel Insektenspray benutzen", "Im Sommer wenig draußen sein"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Die geheimnisvolle Höhle",
+    topic: "Abenteuer",
+    text: `Tom und seine Schwester Lina waren mit ihren Eltern in den Sommerferien in den Bergen. Eines Nachmittags wanderten sie einen schmalen Pfad entlang. Plötzlich blieb Tom stehen. „Schaut mal — da ist ein Loch im Felsen!"
+
+Tatsächlich: Hinter ein paar Sträuchern war eine kleine Öffnung im Berg. Eine Höhle! Die Eltern waren neugierig, hatten aber keine Lampe dabei. Zum Glück trug Lina eine kleine Stirnlampe in ihrem Rucksack.
+
+Vorsichtig krochen sie hintereinander durch die Öffnung. Drinnen war es kühl und still. Der Lichtkegel der Lampe tanzte über glitzernde Wände. „Das sieht aus wie tausend kleine Sterne", flüsterte Lina.
+
+Nach ein paar Metern wurde der Gang breiter. Sie standen plötzlich in einer großen Halle aus Stein. Von der Decke hingen lange spitze Tropfsteine. Auf dem Boden wuchsen welche nach oben. „Die brauchen tausende Jahre, um zu wachsen", erklärte der Vater leise. Niemand wagte, sie zu berühren.
+
+Plötzlich hörte Tom ein leises Plätschern. Sie folgten dem Geräusch und entdeckten einen winzigen unterirdischen Bach. Das Wasser war so klar, dass man jeden Stein darin sehen konnte. Lina ließ kurz die Hand hineingleiten — eiskalt!
+
+Auf einem der Steine entdeckte Tom eine merkwürdige Spur. „Das sieht aus wie eine Pfote." Der Vater nickte. „Wahrscheinlich war hier ein Fuchs oder Dachs. Die finden hier Schutz vor schlechtem Wetter."
+
+Nach einer halben Stunde drehten sie um. Draußen blendete sie die Sonne. Die Welt sah plötzlich viel bunter aus als vorher. Auf dem Rückweg waren alle still — als hätten sie ein Geheimnis entdeckt, das nur ihnen gehörte.
+
+Am Abend zeichnete Lina die Höhle in ihr Reisetagebuch. Darunter schrieb sie nur einen Satz: „Heute waren wir in einer Welt, die schon lange vor uns da war."`,
+    questions: [
+      {
+        q: "Womit konnte die Familie in der Höhle etwas sehen?",
+        options: ["Mit Kerzen", "Mit Linas Stirnlampe", "Mit dem Sonnenlicht", "Mit einer Taschenlampe vom Vater"],
+        correct: 1
+      },
+      {
+        q: "Was hingen von der Decke der großen Halle?",
+        options: ["Spinnweben", "Tropfsteine", "Eiszapfen", "Wurzeln"],
+        correct: 1
+      },
+      {
+        q: "Was entdeckte Tom auf einem der Steine am Bach?",
+        options: ["Eine Münze", "Eine Pfotenspur", "Einen Knochen", "Ein Stück Stoff"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Der Mond",
+    topic: "Wissen",
+    text: `Der Mond ist der treueste Begleiter unserer Erde. Er kreist Tag und Nacht um sie herum. Für eine ganze Runde braucht er etwa 27 Tage. Während die Erde um die Sonne kreist, fliegt der Mond mit ihr mit.
+
+Manchmal sehen wir den Mond als runde Scheibe — das nennt man Vollmond. Manchmal ist er nur eine schmale Sichel. Und manchmal sehen wir ihn gar nicht. Diese Veränderung nennt man Mondphasen. Sie entsteht, weil die Sonne den Mond unterschiedlich beleuchtet und wir immer nur den beleuchteten Teil sehen.
+
+Der Mond ist deutlich kleiner als die Erde. Trotzdem ist er groß genug, dass er uns am Himmel auffällt. Auf seiner Oberfläche gibt es viele Krater. Krater entstehen, wenn ein großer Stein aus dem Weltall — ein sogenannter Meteorit — auf den Mond einschlägt. Auf der Erde gibt es kaum Krater, weil hier Wind und Regen sie wieder abtragen. Auf dem Mond gibt es weder Wind noch Regen, deshalb bleiben die Krater dort sehr lange erhalten.
+
+Auf dem Mond kann man nicht atmen, denn er hat keine Luft. Außerdem ist es extrem kalt, wenn die Sonne nicht scheint, und sehr heiß, wenn sie scheint. Trotzdem haben es Menschen geschafft, dorthin zu fliegen. Im Jahr 1969 betrat zum ersten Mal ein Mensch den Mond — der Astronaut Neil Armstrong. Er sagte den berühmten Satz: „Ein kleiner Schritt für einen Menschen, ein großer Sprung für die Menschheit."
+
+Der Mond beeinflusst auch das Meer. Seine Anziehungskraft sorgt dafür, dass es zweimal am Tag Ebbe und Flut gibt. Wenn du also am Strand stehst und das Wasser höher oder tiefer wird, hat das mit dem Mond zu tun.
+
+Auch heute fliegen ab und zu Raumschiffe zum Mond. Forscher hoffen, dort eines Tages eine kleine Forschungsstation zu bauen.`,
+    questions: [
+      {
+        q: "Wie lange braucht der Mond etwa für eine Runde um die Erde?",
+        options: ["Einen Tag", "Eine Woche", "27 Tage", "Ein Jahr"],
+        correct: 2
+      },
+      {
+        q: "Warum bleiben die Krater auf dem Mond so lange erhalten?",
+        options: ["Weil sie aus festem Metall sind", "Weil dort kein Wind und kein Regen sind", "Weil es auf dem Mond zu kalt ist", "Weil die Krater sehr neu sind"],
+        correct: 1
+      },
+      {
+        q: "Wer betrat 1969 als erster Mensch den Mond?",
+        options: ["Juri Gagarin", "Neil Armstrong", "Buzz Aldrin", "Alexander Gerst"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Pinguine im Eis",
+    topic: "Tiere",
+    text: `Pinguine sind Vögel — aber sie können nicht fliegen. Dafür sind sie Meister im Schwimmen und Tauchen. Mit ihren kurzen Flügeln, die wie kleine Ruder aussehen, gleiten sie blitzschnell durch das Wasser. Manche Pinguine erreichen unter Wasser sogar 30 Kilometer pro Stunde.
+
+Die meisten Pinguine leben auf der Südhalbkugel der Erde. Besonders viele gibt es in der Antarktis, dem kältesten Gebiet der Welt. Dort kann es minus 50 Grad kalt werden. Doch die Pinguine sind perfekt an diese Kälte angepasst. Unter ihrer Haut haben sie eine dicke Speckschicht. Außerdem sind ihre Federn fest und halten das Wasser ab — wie ein guter Regenmantel.
+
+Es gibt etwa 18 verschiedene Pinguinarten. Die größte ist der Kaiserpinguin. Er kann bis zu einem Meter zwanzig groß werden und über 30 Kilogramm wiegen. Die kleinste Art, der Zwergpinguin, ist nur etwa so groß wie ein Schuh.
+
+Kaiserpinguine sind besondere Eltern. Wenn das Weibchen ein Ei legt, übergibt sie es dem Männchen. Der Vater steckt das Ei zwischen seine Füße und eine Hautfalte. Dort hält er es warm — den ganzen Winter lang, bei Wind und Schnee. In dieser Zeit frisst er nichts. Inzwischen läuft das Weibchen kilometerweit zum Meer und sammelt Futter. Wenn es zurückkommt, wechseln sich die Eltern ab.
+
+Pinguine ernähren sich von Fisch, Tintenfisch und kleinen Krebsen. Beim Tauchen können sie minutenlang die Luft anhalten. Ein Kaiserpinguin schafft es sogar, mehr als zwanzig Minuten unter Wasser zu bleiben.
+
+Auf dem Land laufen Pinguine eher tapsig. Manchmal rutschen sie auf dem Bauch durch den Schnee — das nennt man Tobogganen. So kommen sie schneller voran und sparen Kraft.
+
+Pinguine sind also wahre Überlebenskünstler in einer der kältesten Welten der Erde.`,
+    questions: [
+      {
+        q: "Warum können Pinguine nicht fliegen?",
+        options: ["Weil sie zu schwer sind", "Weil sie keine Federn haben", "Ihre Flügel sind kurz und wie Ruder geformt", "Sie haben es nie gelernt"],
+        correct: 2
+      },
+      {
+        q: "Wer kümmert sich beim Kaiserpinguin im Winter um das Ei?",
+        options: ["Das Weibchen allein", "Das Männchen", "Beide gleichzeitig", "Die ganze Pinguingruppe"],
+        correct: 1
+      },
+      {
+        q: "Wie heißt es, wenn Pinguine auf dem Bauch durch den Schnee rutschen?",
+        options: ["Surfen", "Schlittern", "Tobogganen", "Pinguinieren"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Vom Korn zum Brot",
+    topic: "Wissen",
+    text: `Brot gehört für viele Menschen jeden Tag zum Essen. Aber wie kommt das Brot überhaupt auf den Tisch? Der Weg vom Korn bis zum Brot ist länger, als man denkt.
+
+Alles beginnt auf dem Acker. Im Herbst oder Frühling sät der Bauer Getreidekörner in die Erde. Es gibt verschiedene Getreidesorten: Weizen, Roggen, Gerste, Hafer und Dinkel. Jede Sorte schmeckt etwas anders. Aus den Körnern wachsen lange grüne Halme. Oben am Halm sitzt die Ähre. In der Ähre stecken neue Körner.
+
+Im Sommer werden die Halme gelb. Das Getreide ist dann reif. Jetzt kommt der große Mähdrescher auf das Feld. Diese riesige Maschine schneidet das Getreide ab und trennt die Körner gleichzeitig vom Stroh. Das Stroh bleibt liegen oder wird zu Ballen gepresst. Die Körner werden in einen Tank gesammelt.
+
+Die Körner kommen in eine Mühle. Früher waren das Wind- oder Wassermühlen aus Stein. Heute sind es meistens große moderne Mühlen. Dort werden die Körner zwischen schweren Walzen zu Mehl zermahlen. Aus Weizen wird Weizenmehl, aus Roggen Roggenmehl.
+
+Das Mehl bekommt der Bäcker. Er mischt es mit Wasser, Salz und Hefe oder Sauerteig. Der Teig muss eine Weile ruhen, damit er aufgeht. Dabei wird der Teig größer und lockerer. Anschließend formt der Bäcker den Teig zu Brot, Brötchen oder anderen leckeren Sachen.
+
+Im heißen Backofen wird der Teig zu Brot. Er bekommt eine knusprige Kruste und duftet wunderbar. Manche Bäcker beginnen schon mitten in der Nacht, damit morgens frisches Brot im Laden liegt.
+
+Wenn du das nächste Mal ein Brot kaufst, denke an seinen langen Weg: vom kleinen Korn auf dem Feld bis zur frischen Scheibe auf deinem Frühstücksteller.`,
+    questions: [
+      {
+        q: "Welche Maschine erntet das Getreide auf dem Feld?",
+        options: ["Der Traktor", "Der Mähdrescher", "Der Pflug", "Die Sämaschine"],
+        correct: 1
+      },
+      {
+        q: "Was passiert in der Mühle mit den Körnern?",
+        options: ["Sie werden gewaschen", "Sie werden zu Mehl gemahlen", "Sie werden gekocht", "Sie werden gesalzen"],
+        correct: 1
+      },
+      {
+        q: "Warum muss der Teig beim Bäcker ruhen?",
+        options: ["Damit er aufgeht und locker wird", "Damit er trocken wird", "Damit er kalt wird", "Damit das Mehl absinkt"],
+        correct: 0
+      }
+    ]
+  },
+  {
+    title: "Ein Tag im Zoo",
+    topic: "Abenteuer",
+    text: `Endlich war es so weit! Pauls Klasse machte einen Ausflug in den Zoo. Schon im Bus war die Stimmung gut. Alle hatten Rucksäcke voller Brote und Wasserflaschen dabei. Frau Berg, die Lehrerin, lachte: „Wenn ihr so viel mitbringt, wundere ich mich nicht, dass der Bus so schwer fährt."
+
+Im Zoo zeigte ihnen die Tierpflegerin Anna zuerst die Erdmännchen. Die kleinen Tiere standen aufrecht auf zwei Beinen und schauten neugierig in alle Richtungen. „Sie wollen wissen, ob ein Feind kommt", erklärte Anna. „Wenn einer Gefahr sieht, pfeift er — und alle anderen verschwinden in ihrem Bau."
+
+Danach gingen sie zu den Affen. Ein junger Schimpanse namens Toni hatte gerade einen Apfel in der Hand. Er schaute Paul direkt in die Augen — und biss dann in den Apfel, als wollte er sagen: „Schau, der schmeckt!" Paul musste lachen.
+
+Beim Mittagessen setzten sich alle auf eine Wiese. Plötzlich kam eine Krähe angeflogen, hüpfte mutig zwischen den Kindern herum und schnappte sich ein Stück Käse. „He!", rief Mia. Aber die Krähe war schon weg. Frau Berg sagte: „Im Zoo lernen manchmal sogar die wilden Tiere mit uns zu leben."
+
+Nach der Pause besuchten sie die Pinguine. Anna erklärte, dass diese Pinguine aus einem warmen Land stammen und keine Kälte brauchen. Beim Fütterung warfen die Pfleger Fische ins Becken. Die Pinguine schossen wie kleine Pfeile durchs Wasser.
+
+Am Ende des Tages durften die Kinder ein Lieblingstier wählen, über das sie in der Schule etwas schreiben sollten. Paul wählte den Schimpansen Toni. „Er hat mich angeguckt, als wären wir Freunde", sagte er.
+
+Auf der Rückfahrt war es im Bus viel ruhiger als am Morgen. Viele Kinder waren eingeschlafen. Paul hielt sein Heft auf den Knien und schrieb schon den ersten Satz: „Heute habe ich einen Affen kennengelernt, der lachen konnte."`,
+    questions: [
+      {
+        q: "Warum stehen Erdmännchen oft aufrecht?",
+        options: ["Weil sie tanzen", "Weil sie nach Feinden Ausschau halten", "Weil sie Sport machen", "Weil sie schlafen"],
+        correct: 1
+      },
+      {
+        q: "Was passierte beim Mittagessen?",
+        options: ["Es fing an zu regnen", "Eine Krähe schnappte sich Käse", "Ein Affe rannte aus dem Käfig", "Die Lehrerin verlor ihren Schlüssel"],
+        correct: 1
+      },
+      {
+        q: "Welches Tier wählte Paul für seinen Schulbericht?",
+        options: ["Das Erdmännchen", "Den Pinguin", "Den Schimpansen Toni", "Die Krähe"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Die alten Ägypter",
+    topic: "Geschichte",
+    text: `Vor über 4000 Jahren lebte am Nil ein Volk, das wir heute die alten Ägypter nennen. Der Nil ist ein riesiger Fluss in Afrika. Jedes Jahr trat er über die Ufer und ließ fruchtbaren Schlamm zurück. Auf diesem Schlamm wuchsen Getreide, Obst und Gemüse besonders gut. Ohne den Nil hätte es das alte Ägypten gar nicht gegeben.
+
+Die Ägypter waren erstaunliche Baumeister. Ihre berühmtesten Bauwerke sind die Pyramiden. Eine Pyramide ist ein riesiges Grab in Form eines Dreiecks. Die größte Pyramide steht in Gizeh und ist fast 150 Meter hoch. Sie wurde aus über zwei Millionen Steinen gebaut — und das alles vor mehr als 4000 Jahren, ganz ohne moderne Maschinen.
+
+Die Ägypter wurden von einem König regiert, den sie Pharao nannten. Der Pharao galt als Sohn der Götter. Wenn er starb, wurde er einbalsamiert. Das heißt: Sein Körper wurde so behandelt, dass er nicht verweste. Den Körper wickelte man in Leinenstreifen ein. So entstand eine Mumie. Mumien wurden zusammen mit Schmuck, Möbeln und sogar Spielzeug ins Grab gelegt — die Ägypter glaubten, dass die Toten das alles im Jenseits brauchen.
+
+Die Ägypter hatten eine eigene Schrift, die Hieroglyphen. Hieroglyphen sind kleine Bilder von Tieren, Menschen oder Gegenständen. Jedes Bild bedeutete einen Laut oder ein Wort. Heute können Forscher Hieroglyphen wieder lesen. Sie haben uns viele Geschichten der alten Ägypter zurückgebracht.
+
+Die Ägypter glaubten an viele Götter. Der Sonnengott Re zum Beispiel zog jeden Tag mit seinem Boot über den Himmel. Anubis, der Gott der Toten, hatte den Kopf eines Schakals.
+
+Auch im Alltag waren die Ägypter geschickt. Sie webten Stoffe, schmiedeten Schmuck aus Gold und stellten sogar das erste richtige Papier her — das Papyrus, gemacht aus den Stängeln einer Sumpfpflanze.
+
+Vieles, was wir heute über das alte Ägypten wissen, verdanken wir Forschern, die in den Wüsten gegraben haben. Und es gibt noch viele Geheimnisse, die unter dem Sand auf ihre Entdeckung warten.`,
+    questions: [
+      {
+        q: "Warum war der Nil für die alten Ägypter so wichtig?",
+        options: ["Er war gut zum Schwimmen", "Er ließ fruchtbaren Schlamm zurück, sodass Pflanzen gut wuchsen", "Er trennte Ägypten von Feinden", "Er war ein Spielort für Kinder"],
+        correct: 1
+      },
+      {
+        q: "Wie nannte man den König der alten Ägypter?",
+        options: ["Sultan", "Pharao", "Kalif", "Cäsar"],
+        correct: 1
+      },
+      {
+        q: "Was sind Hieroglyphen?",
+        options: ["Ein Tanz", "Eine Sportart", "Eine Bilderschrift", "Ein Götterfest"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Ameisen — winzige Riesen",
+    topic: "Tiere",
+    text: `Ameisen sind klein, aber mächtig. Eine einzelne Ameise sieht unscheinbar aus. Doch zusammen schaffen sie Erstaunliches. Eine Ameisenkolonie kann aus mehreren Millionen Tieren bestehen. Sie alle leben und arbeiten zusammen wie eine riesige Familie.
+
+In jeder Kolonie gibt es eine Königin. Sie ist meistens viel größer als die anderen Ameisen und legt jeden Tag tausende Eier. Aus den Eiern schlüpfen Larven, später werden daraus die Arbeiterinnen. Die Arbeiterinnen sammeln Futter, bauen den Bau, kümmern sich um die Larven oder verteidigen die Kolonie. Manche Ameisen sind sogar Soldaten mit besonders großen Köpfen und kräftigen Kiefern.
+
+Ameisen können erstaunlich schwere Dinge tragen. Eine Ameise schafft es, das 50fache ihres eigenen Gewichts zu heben. Wenn ein Mensch das könnte, würde er ein ganzes Auto stemmen. Beim Tragen helfen sich Ameisen oft gegenseitig — vor allem, wenn etwas wirklich groß ist.
+
+Ihre Wege finden Ameisen mit Hilfe von Duftstoffen. Wenn eine Ameise Futter findet, läuft sie zurück zum Nest und hinterlässt unterwegs einen Duftpfad. Andere Ameisen folgen dieser Spur und finden so das Futter. Deshalb sieht man oft lange Reihen von Ameisen, die hintereinander herlaufen.
+
+Ein Ameisenhaufen ist nur die Spitze des Nestes. Tief im Boden gibt es viele Gänge und Kammern. Dort werden Eier gelagert, Vorräte aufbewahrt und Larven gefüttert. Manche Nester reichen mehrere Meter in die Tiefe.
+
+Im Wald sind Ameisen sehr nützlich. Sie räumen tote Insekten weg und lockern den Boden auf, sodass die Pflanzen besser wachsen. Außerdem fressen sie Schädlinge, die sonst Bäumen schaden würden. Deshalb sind manche Ameisenarten in Deutschland sogar geschützt — man darf ihre Hügel nicht zerstören.
+
+Ameisen zeigen, dass Zusammenarbeit oft mehr schafft als ein einzelner Held. Beim nächsten Spaziergang im Wald lohnt es sich, einen Moment lang innezuhalten und einer Ameise auf ihrem Weg zu folgen.`,
+    questions: [
+      {
+        q: "Wie schwer kann eine Ameise im Vergleich zu sich selbst tragen?",
+        options: ["Genauso schwer wie sie selbst", "Doppelt so viel", "Das 50fache ihres Gewichts", "Das 1000fache ihres Gewichts"],
+        correct: 2
+      },
+      {
+        q: "Wie finden Ameisen den Weg zum Futter zurück?",
+        options: ["Mit Karten", "Mit Hilfe von Duftstoffen auf dem Boden", "Indem sie die Sonne beobachten", "Sie merken sich jeden Stein"],
+        correct: 1
+      },
+      {
+        q: "Warum sind Ameisen im Wald nützlich?",
+        options: ["Sie singen schöne Lieder", "Sie räumen tote Insekten weg und fressen Schädlinge", "Sie lockern den Boden mit ihren Flügeln", "Sie pflanzen Bäume"],
+        correct: 1
+      }
+    ]
+  }
+];
+
+let state = {
+  currentText: null,
+  qIndex: 0,
+  score: 0,
+  answered: false
+};
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function buildTextList() {
+  const list = document.getElementById('textList');
+  list.innerHTML = '';
+  TEXTS.forEach((t, i) => {
+    const card = document.createElement('button');
+    card.className = 'text-card';
+    card.innerHTML = `${t.title}<span class="topic">${t.topic}</span>`;
+    card.onclick = () => openText(i);
+    list.appendChild(card);
+  });
+}
+
+function openText(index) {
+  state.currentText = index;
+  state.qIndex = 0;
+  state.score = 0;
+  state.answered = false;
+  const t = TEXTS[index];
+  document.getElementById('readingTitle').textContent = t.title;
+  document.getElementById('readingContent').textContent = t.text;
+  showScreen('screen-reading');
+}
+
+function startRandom() {
+  const i = Math.floor(Math.random() * TEXTS.length);
+  openText(i);
+}
+
+function startQuestions() {
+  state.qIndex = 0;
+  state.score = 0;
+  showQuestion();
+  showScreen('screen-question');
+}
+
+function rereadText() {
+  showScreen('screen-reading');
+}
+
+function showQuestion() {
+  const t = TEXTS[state.currentText];
+  const q = t.questions[state.qIndex];
+  state.answered = false;
+  document.getElementById('progress').textContent = `Frage ${state.qIndex + 1} von ${t.questions.length}`;
+  document.getElementById('questionText').textContent = q.q;
+  const optsDiv = document.getElementById('options');
+  optsDiv.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const b = document.createElement('button');
+    b.className = 'option';
+    b.textContent = opt;
+    b.onclick = () => answer(i, b);
+    optsDiv.appendChild(b);
+  });
+  document.getElementById('feedback').innerHTML = '';
+  document.getElementById('nextBtn').style.display = 'none';
+}
+
+function answer(chosen, btn) {
+  if (state.answered) return;
+  state.answered = true;
+  const t = TEXTS[state.currentText];
+  const q = t.questions[state.qIndex];
+  const allBtns = document.querySelectorAll('#options .option');
+  allBtns.forEach((b, i) => {
+    b.classList.add('disabled');
+    if (i === q.correct) b.classList.add('correct');
+    if (i === chosen && chosen !== q.correct) b.classList.add('wrong');
+  });
+  const fb = document.getElementById('feedback');
+  if (chosen === q.correct) {
+    state.score++;
+    fb.className = 'feedback right';
+    fb.textContent = 'Richtig! Sehr gut!';
+    playGoodSound();
+  } else {
+    fb.className = 'feedback wrong';
+    fb.textContent = 'Leider falsch. Die richtige Antwort ist markiert.';
+  }
+  const isLast = state.qIndex === t.questions.length - 1;
+  const next = document.getElementById('nextBtn');
+  next.textContent = isLast ? 'Ergebnis sehen' : 'Weiter';
+  next.style.display = 'inline-block';
+}
+
+function nextQuestion() {
+  const t = TEXTS[state.currentText];
+  if (state.qIndex < t.questions.length - 1) {
+    state.qIndex++;
+    showQuestion();
+  } else {
+    showResult();
+  }
+}
+
+function showResult() {
+  const t = TEXTS[state.currentText];
+  const total = t.questions.length;
+  const score = state.score;
+  document.getElementById('resultScore').textContent = `${score} von ${total} richtig`;
+
+  // stars: 1, 2 or 3
+  let stars;
+  if (score === total) stars = 3;
+  else if (score >= Math.ceil(total / 2)) stars = 2;
+  else if (score > 0) stars = 1;
+  else stars = 0;
+
+  let starsHtml = '';
+  for (let i = 0; i < 3; i++) {
+    starsHtml += `<span class="${i < stars ? 'star-on' : 'star-off'}">★</span>`;
+  }
+  document.getElementById('resultStars').innerHTML = starsHtml;
+
+  let emoji, msg;
+  if (score === total) {
+    emoji = '🎉';
+    msg = 'Super gemacht! Du hast alle Fragen richtig beantwortet.';
+    playFanfare();
+  } else if (score >= Math.ceil(total / 2)) {
+    emoji = '😊';
+    msg = 'Gut gemacht! Lies den Text gerne noch einmal und versuche es wieder.';
+  } else {
+    emoji = '📖';
+    msg = 'Kein Problem. Versuche, den Text noch einmal in Ruhe zu lesen.';
+  }
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultMessage').textContent = msg;
+
+  showScreen('screen-result');
+}
+
+function goHome() {
+  showScreen('screen-start');
+}
+
+// Sounds via Web Audio API
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {}
+  }
+  return audioCtx;
+}
+function playTone(freq, start, dur, vol = 0.15) {
+  const ctx = getAudio();
+  if (!ctx) return;
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.frequency.value = freq;
+  o.type = 'triangle';
+  g.gain.setValueAtTime(0, ctx.currentTime + start);
+  g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.02);
+  g.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(ctx.currentTime + start);
+  o.stop(ctx.currentTime + start + dur + 0.05);
+}
+function playGoodSound() {
+  playTone(660, 0, 0.15);
+  playTone(880, 0.12, 0.20);
+}
+function playFanfare() {
+  playTone(523, 0.00, 0.18);  // C
+  playTone(659, 0.18, 0.18);  // E
+  playTone(784, 0.36, 0.18);  // G
+  playTone(1047, 0.54, 0.35); // C
+}
+
+// init
+buildTextList();
+</script>
+</body>
+</html>
