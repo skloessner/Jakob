@@ -168,7 +168,6 @@ h1 em { color: var(--accent); font-style: normal; }
 .fb-err {background:#fef2f2;color:#991b1b;}
 .fb-ico {font-size:1rem;flex-shrink:0;margin-top:1px;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -523,389 +522,258 @@ function nextSentence() {
 }
 
 /* ══════════════════════════════════════════════════
-   AUSWERTUNG – komplett lokal im Browser
-   (Tesseract.js OCR + Textvergleich)
+   AUSWERTUNG – komplett lokal, keine externen Abhängigkeiten
+   Rendert den Vorgabetext auf ein Referenz-Canvas,
+   vergleicht Wort für Wort die Tintenpräsenz im
+   Handschrift-Canvas und prüft Schriftgröße/Linientreue.
 ══════════════════════════════════════════════════ */
 
-/* Levenshtein-Distanz für unscharfen Wortvergleich */
-function levenshtein(a, b) {
-  const m = a.length, n = b.length;
-  const dp = Array.from({length: m + 1}, () => Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i-1] === b[j-1]
-        ? dp[i-1][j-1]
-        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-  return dp[m][n];
-}
-
-/* Bestes Alignment zweier Wortlisten (einfaches DP) –
-   gibt Array von Paaren [vorgabeWort|null, geschriebenesWort|null] */
-function alignWords(va, ga) {
-  const m = va.length, n = ga.length;
-  const dp = Array.from({length: m+1}, () => Array(n+1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++) {
-      const cost = va[i-1].toLowerCase() === ga[j-1].toLowerCase() ? 0 : 1;
-      dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
-    }
-  // Backtrack
-  const pairs = [];
-  let i = m, j = n;
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && dp[i][j] === dp[i-1][j-1] + (va[i-1].toLowerCase()===ga[j-1].toLowerCase()?0:1)) {
-      pairs.push([va[--i], ga[--j]]);
-    } else if (i > 0 && dp[i][j] === dp[i-1][j] + 1) {
-      pairs.push([va[--i], null]);
-    } else {
-      pairs.push([null, ga[--j]]);
+/* ── Hilfsfunktion: Tinte zählen in einem Bildausschnitt ── */
+function countInk(imgData, x0, y0, x1, y1, cw) {
+  const px = imgData.data;
+  let ink = 0, total = 0;
+  const ix0 = Math.max(0, Math.floor(x0));
+  const iy0 = Math.max(0, Math.floor(y0));
+  const ix1 = Math.min(cw, Math.ceil(x1));
+  const iy1 = Math.min(imgData.height, Math.ceil(y1));
+  for (let y = iy0; y < iy1; y++) {
+    for (let x = ix0; x < ix1; x++) {
+      const i = (y * cw + x) * 4;
+      const br = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
+      total++;
+      if (br < 140) ink++;
     }
   }
-  return pairs.reverse();
+  return { ink, total, ratio: total > 0 ? ink / total : 0 };
+}
+
+/* ── Wort-Positionen im Schreibbereich berechnen ──
+   Nutzt die gleiche Schrift/Größe wie renderVorgabe,
+   damit die Positionen zum erwarteten Layout passen. */
+function measureWordLayout(satz, W) {
+  const FONT_SIZE = Math.min(36, W * 0.048);
+  const LINE_H    = FONT_SIZE * 2.6;
+  const PAD_TOP   = FONT_SIZE * 0.9;
+  const font      = `${FONT_SIZE}px 'Noto Sans', Arial, sans-serif`;
+  const maxW      = W - 36;
+
+  const tmp = document.createElement('canvas');
+  const ctx = tmp.getContext('2d');
+  ctx.font = font;
+
+  /* Wörter mit Pixelpositionen */
+  const words = satz.replace(/\s+/g, ' ').trim().split(' ');
+  const result = [];
+  let curX = 18;           /* linker Rand */
+  let line = 0;
+  const spaceW = ctx.measureText(' ').width;
+
+  words.forEach(w => {
+    const wW = ctx.measureText(w).width;
+    if (curX + wW > maxW && curX > 18) { line++; curX = 18; }
+    const y0 = PAD_TOP + line * LINE_H;
+    result.push({
+      word: w,
+      line,
+      /* Bounding-Box in CSS-Pixeln relativ zum Canvas */
+      x: curX,
+      y: y0,
+      w: wW,
+      h: LINE_H,
+      /* Grundlinie (orange Linie) innerhalb der Zeile */
+      baseline: y0 + LINE_H * 0.68
+    });
+    curX += wW + spaceW;
+  });
+
+  return { words: result, fontSize: FONT_SIZE, lineH: LINE_H, totalLines: line + 1 };
 }
 
 /* ── Hauptfunktion: Überprüfen-Button ── */
-async function checkWriting() {
+function checkWriting() {
   if (!hasContent) { alert('Bitte zuerst schreiben! ✏️'); return; }
 
   const btn = document.getElementById('checkBtn');
-  btn.textContent = '🔍 Schrift wird gelesen…';
-  await new Promise(r => setTimeout(r, 30));
+  btn.textContent = '🔍 Wird analysiert…';
   btn.disabled = true;
 
-  /* Sauberes Bild: nur Handschrift auf Weiß (ohne Hilfslinien) */
-  const W = wrap.clientWidth;
-  const H = parseInt(drC.style.height) || ROW_H * ROWS + PAD * 2;
-  const exp = document.createElement('canvas');
-  exp.width  = Math.round(W * dpr);
-  exp.height = Math.round(H * dpr);
-  const ex = exp.getContext('2d');
-  ex.scale(dpr, dpr);
-  ex.fillStyle = '#ffffff';
-  ex.fillRect(0, 0, W, H);
-  ex.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, W, H);
+  /* Kurze Verzögerung, damit der Button-Text rendert */
+  setTimeout(() => {
+    const W = wrap.clientWidth;
+    const H = parseInt(drC.style.height) || ROW_H * ROWS + PAD * 2;
 
-  const satz = SAETZE[satzIdx % SAETZE.length];
+    const satz = SAETZE[satzIdx % SAETZE.length];
+    const result = analyzeWriting(satz, W, H);
 
-  let result;
-  try {
-    result = await recognizeAndCompare(satz, exp, btn);
-  } catch (e) {
-    console.error('OCR-Fehler:', e);
-    /* Tesseract hat nicht funktioniert → visuelle Analyse als Fallback */
-    try {
-      result = analyzeVisually(satz, exp, W, H);
-    } catch (_) {
-      result = fallback(e.message || '');
-    }
-  }
-
-  showResult(result);
-  btn.textContent = '🔍 Überprüfen';
-  btn.disabled = false;
+    showResult(result);
+    btn.textContent = '🔍 Überprüfen';
+    btn.disabled = false;
+  }, 40);
 }
 
-/* ── Tesseract OCR + lokaler Vergleich ── */
-async function recognizeAndCompare(vorgabe, canvas, btn) {
-  /* Prüfe ob Tesseract überhaupt geladen wurde */
-  if (typeof Tesseract === 'undefined') {
-    throw new Error('Tesseract.js konnte nicht vom CDN geladen werden.');
-  }
+/* ══════════════════════════════════════════════════
+   PIXELBASIERTE ANALYSE
+══════════════════════════════════════════════════ */
+function analyzeWriting(vorgabe, W, H) {
+  const punkte = [];
+  let score = 100;
 
-  /* Schritt 1 – Tesseract-Worker starten mit expliziten Pfaden */
-  btn.textContent = '🔤 Lade Texterkennung…';
+  /* ── 1. Handschrift-Canvas auslesen (Offscreen = reine Tinte) ── */
+  const hwData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
+  const cw = offscreen.width;
+  const ch = offscreen.height;
 
-  /* Timeout: nach 30 Sek. abbrechen */
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Zeitüberschreitung beim Laden der Texterkennung.')), 30000));
-
-  const createW = Tesseract.createWorker('deu', 1, {
-    workerPath : 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
-    corePath   : 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
-    langPath   : 'https://tessdata.projectnaptha.com/4.0.0',
-    logger     : m => {
-      if (m.status === 'loading tesseract core')
-        btn.textContent = '⚙️ Lade OCR-Engine…';
-      else if (m.status === 'loading language traineddata')
-        btn.textContent = '🔤 Lade deutsche Sprachdaten…';
-      else if (m.status === 'initializing tesseract')
-        btn.textContent = '⚙️ Initialisiere…';
-      else if (m.status === 'recognizing text')
-        btn.textContent = '🔍 Erkenne Schrift…';
-    }
-  });
-
-  const worker = await Promise.race([createW, timeout]);
-
-  /* Schritt 2 – OCR auf dem Canvas */
-  btn.textContent = '🔍 Schrift wird erkannt…';
-
-  let data;
-  try {
-    const ret = await worker.recognize(canvas);
-    data = ret.data;
-  } finally {
-    await worker.terminate();
-  }
-
-  let geschrieben = (data.text || '').trim()
-    .replace(/\n+/g, ' ')
-    .replace(/\s+/g, ' ');
-
-  /* Typische OCR-Korrekturen für deutsche Handschrift */
-  geschrieben = geschrieben
-    .replace(/[|]/g, 'l')
-    .replace(/0(?=[a-zäöü])/g, 'o')
-    .replace(/1(?=[a-zäöü])/g, 'l');
-
-  /* Nichts erkannt? → eigene Meldung */
-  if (!geschrieben || geschrieben.length < 2) {
+  /* Gesamte Tinte */
+  const totalInk = countInk(hwData, 0, 0, cw, ch, cw);
+  if (totalInk.ratio < 0.0005) {
     return {
-      score: 0, emoji: '🤔',
-      titel: 'Schrift nicht erkannt',
-      untertitel: 'Die Texterkennung konnte deine Buchstaben leider nicht lesen.',
+      score: 0, emoji: '✏️',
+      titel: 'Fast nichts geschrieben',
+      untertitel: 'Schreibe den ganzen Satz ab und drücke dann auf Überprüfen.',
       punkte: [
-        { typ: 'error', text: 'Deine Buchstaben konnten nicht erkannt werden. Versuche, deutlicher und etwas größer zu schreiben.' },
-        { typ: 'warn',  text: 'Tipp: Schreibe jeden Buchstaben einzeln und klar auf die orangene Grundlinie.' },
-        { typ: 'ok',    text: 'Nicht aufgeben – probiere es noch einmal!' }
+        { typ: 'error', text: 'Im Schreibfeld ist fast keine Schrift zu sehen.' },
+        { typ: 'ok',    text: 'Nimm dir Zeit und schreibe den Satz Wort für Wort ab.' }
       ]
     };
   }
 
-  /* Schritt 3 – Vergleich */
-  btn.textContent = '📝 Wird verglichen…';
-  return compareTexts(vorgabe, geschrieben);
-}
+  /* ── 2. Erwartetes Wort-Layout berechnen ── */
+  const layout = measureWordLayout(vorgabe, W);
 
-/* ══════════════════════════════════════════════════
-   VISUELLE ANALYSE (Fallback wenn Tesseract nicht lädt)
-   Vergleicht Schreibfläche rein pixelbasiert –
-   keine echte OCR, aber nützliches Feedback.
-══════════════════════════════════════════════════ */
-function analyzeVisually(vorgabe, canvas, W, H) {
-  const ctx = canvas.getContext('2d');
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const px = imgData.data;
+  /* Skalierung: measureWordLayout arbeitet in CSS-Pixeln,
+     der Offscreen-Canvas ist aber dpr-skaliert */
+  const sx = dpr;
+  const sy = dpr;
 
-  /* Zähle dunkle Pixel (Tinte) */
-  let inkPixels = 0;
-  const totalPixels = canvas.width * canvas.height;
-  for (let i = 0; i < px.length; i += 4) {
-    const brightness = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
-    if (brightness < 120) inkPixels++;
+  /* ── 3. Wort-für-Wort Tintenpräsenz prüfen ── */
+  const wordResults = [];
+  layout.words.forEach(wi => {
+    /* Bounding-Box in Canvas-Pixel umrechnen */
+    const bx0 = wi.x * sx;
+    const by0 = wi.y * sy;
+    const bx1 = (wi.x + wi.w) * sx;
+    const by1 = (wi.y + wi.h) * sy;
+
+    const ink = countInk(hwData, bx0, by0, bx1, by1, cw);
+    /* Schwellwert: mind. 0.3 % Tinte in der Wort-Box */
+    wordResults.push({ ...wi, inkRatio: ink.ratio, present: ink.ratio > 0.003 });
+  });
+
+  const presentWords = wordResults.filter(w => w.present);
+  const missingWords = wordResults.filter(w => !w.present);
+
+  /* Feedback: erkannte / fehlende Wörter */
+  if (presentWords.length === wordResults.length) {
+    punkte.push({ typ: 'ok', text: `Alle ${wordResults.length} Wörter wurden an der richtigen Stelle erkannt.` });
+  } else {
+    presentWords.length > 0 &&
+      punkte.push({ typ: 'ok', text: `${presentWords.length} von ${wordResults.length} Wörtern erkannt.` });
+    missingWords.forEach(mw => {
+      punkte.push({ typ: 'error', text: `Das Wort „${mw.word}" scheint zu fehlen oder steht an einer unerwarteten Stelle.` });
+      score -= 12;
+    });
   }
-  const inkRatio = inkPixels / totalPixels;
 
-  /* Erwartete Wortanzahl → erwartete ungefähre Tintenabdeckung */
-  const wordCount  = vorgabe.split(/\s+/).length;
-  const charCount  = vorgabe.replace(/\s/g, '').length;
-
-  /* Zeilen-Analyse: prüfe ob in jeder erwarteten Zeile Tinte ist */
-  const rowH = Math.round(canvas.height / ROWS);
-  const rowInk = [];
+  /* ── 4. Zeilenbelegung prüfen ── */
+  const rowH_px = Math.round(H * dpr / ROWS);
+  const rowsUsed = [];
   for (let r = 0; r < ROWS; r++) {
-    let count = 0;
-    const y0 = r * rowH;
-    const y1 = Math.min((r + 1) * rowH, canvas.height);
-    for (let y = y0; y < y1; y++) {
-      for (let x = 0; x < canvas.width; x++) {
-        const idx = (y * canvas.width + x) * 4;
-        const br = px[idx] * 0.299 + px[idx+1] * 0.587 + px[idx+2] * 0.114;
-        if (br < 120) count++;
-      }
-    }
-    rowInk.push(count);
+    const ri = countInk(hwData, 0, r * rowH_px, cw, (r + 1) * rowH_px, cw);
+    rowsUsed.push(ri.ratio > 0.001);
   }
-
-  /* Wörter-Spalten: zähle Lücken im Tintenprofil (grobe Wortanzahl) */
-  const colBins = 100;
-  const binW = Math.floor(canvas.width / colBins);
-  const colInk = new Array(colBins).fill(0);
-  for (let b = 0; b < colBins; b++) {
-    const x0 = b * binW;
-    const x1 = Math.min(x0 + binW, canvas.width);
-    for (let y = 0; y < canvas.height; y++) {
-      for (let x = x0; x < x1; x++) {
-        const idx = (y * canvas.width + x) * 4;
-        const br = px[idx] * 0.299 + px[idx+1] * 0.587 + px[idx+2] * 0.114;
-        if (br < 120) colInk[b]++;
-      }
-    }
-  }
-  const threshold = Math.max(...colInk) * 0.05;
-  let estimatedWords = 0;
-  let inWord = false;
-  for (let b = 0; b < colBins; b++) {
-    if (colInk[b] > threshold && !inWord)  { estimatedWords++; inWord = true; }
-    if (colInk[b] <= threshold && inWord) { inWord = false; }
-  }
-
-  /* Feedback zusammenbauen */
-  const punkte = [];
-  let score = 100;
-
-  /* 1. Tintenmenge */
-  if (inkRatio < 0.001) {
-    punkte.push({ typ: 'error', text: 'Es wurde fast nichts geschrieben. Schreibe den ganzen Satz ab!' });
-    score -= 50;
-  } else if (inkRatio < 0.005) {
-    punkte.push({ typ: 'warn', text: 'Es wurde relativ wenig geschrieben – fehlen vielleicht Wörter?' });
-    score -= 20;
-  } else {
-    punkte.push({ typ: 'ok', text: 'Du hast gut sichtbar geschrieben.' });
-  }
-
-  /* 2. Geschätzte Wortanzahl */
-  const wordDiff = Math.abs(estimatedWords - wordCount);
-  if (wordDiff <= 1) {
-    punkte.push({ typ: 'ok', text: `Die Wortanzahl sieht passend aus (ungefähr ${estimatedWords} erkannt, ${wordCount} erwartet).` });
-  } else if (estimatedWords < wordCount) {
-    punkte.push({ typ: 'warn', text: `Es scheinen Wörter zu fehlen (ungefähr ${estimatedWords} erkannt, ${wordCount} erwartet).` });
-    score -= 10 * wordDiff;
-  } else {
-    punkte.push({ typ: 'warn', text: `Es wurden mehr Wörter erkannt als erwartet (ungefähr ${estimatedWords} statt ${wordCount}).` });
+  const usedRowCount = rowsUsed.filter(Boolean).length;
+  if (usedRowCount > 0 && usedRowCount <= layout.totalLines + 1) {
+    punkte.push({ typ: 'ok', text: `Die Schrift nutzt ${usedRowCount} von ${ROWS} Zeilen – passt gut.` });
+  } else if (usedRowCount > layout.totalLines + 1) {
+    punkte.push({ typ: 'warn', text: `Du hast ${usedRowCount} Zeilen benutzt – der Satz sollte in ${layout.totalLines} Zeile${layout.totalLines > 1 ? 'n' : ''} passen. Versuche etwas kleiner zu schreiben.` });
     score -= 5;
   }
 
-  /* 3. Zeilenverteilung */
-  const usedRows = rowInk.filter(c => c > 50).length;
-  if (usedRows >= 1) {
-    punkte.push({ typ: 'ok', text: `Deine Schrift verteilt sich auf ${usedRows} Zeile${usedRows > 1 ? 'n' : ''}.` });
-  }
+  /* ── 5. Grundlinientreue: Liegt die Tinte überwiegend
+         nahe der orangenen Grundlinie? ── */
+  let onLinePixels = 0, offLinePixels = 0;
+  layout.words.forEach(wi => {
+    if (!wordResults.find(wr => wr.word === wi.word && wr.present)) return;
+    const bx0 = Math.floor(wi.x * sx);
+    const bx1 = Math.ceil((wi.x + wi.w) * sx);
+    /* Zone ±30 % der Zeilenhöhe um die Grundlinie */
+    const blY = wi.baseline * sy;
+    const bandTop    = blY - wi.h * sy * 0.45;
+    const bandBottom = blY + wi.h * sy * 0.25;
 
-  /* 4. Hinweis zur eingeschränkten Analyse */
-  punkte.push({ typ: 'warn', text: 'Hinweis: Die vollständige Texterkennung konnte nicht geladen werden. Diese Auswertung basiert nur auf der Bildanalyse und kann den Inhalt nicht lesen. Bitte lass eine Lehrerin oder einen Erwachsenen deinen Text prüfen!' });
-
-  score = Math.max(0, Math.min(100, score));
-
-  let emoji, titel, untertitel;
-  if (score >= 80) {
-    emoji = '👍'; titel = 'Sieht gut aus!';
-    untertitel = 'Die Schrift sieht ordentlich aus – lass den Inhalt am besten von jemandem prüfen.';
-  } else if (score >= 50) {
-    emoji = '💪'; titel = 'Guter Versuch!';
-    untertitel = 'Schau dir die Hinweise an und versuche es noch einmal.';
-  } else {
-    emoji = '🤔'; titel = 'Noch einmal versuchen';
-    untertitel = 'Schreibe langsam und deutlich – du schaffst das!';
-  }
-
-  return { score, emoji, titel, untertitel, punkte };
-}
-
-/* ── Lokaler Textvergleich ── */
-function compareTexts(vorgabe, geschrieben) {
-  const punkte = [];
-  let score = 100;
-
-  /* Was wurde erkannt? */
-  punkte.push({ typ: 'ok', text: `Ich habe gelesen: »${geschrieben}«` });
-
-  /* Normalisierung für Wortvergleich */
-  const stripPunct = s => s.replace(/[.,!?;:]+$/g, '').trim();
-  const wordsV = stripPunct(vorgabe).split(/\s+/);
-  const wordsG = stripPunct(geschrieben).split(/\s+/);
-
-  /* Alignment der Wortlisten */
-  const pairs = alignWords(wordsV, wordsG);
-
-  let correctWords  = 0;
-  let spellingErrors = [];
-  let caseErrors     = [];
-  let missingWords   = [];
-  let extraWords     = [];
-
-  pairs.forEach(([wV, wG]) => {
-    if (wV && !wG) {
-      missingWords.push(wV);
-      score -= 15;
-      return;
-    }
-    if (!wV && wG) {
-      extraWords.push(wG);
-      score -= 10;
-      return;
-    }
-
-    /* Beide vorhanden → vergleichen */
-    const dist = levenshtein(wV.toLowerCase(), wG.toLowerCase());
-
-    if (dist === 0) {
-      /* Inhaltlich gleich → Groß-/Kleinschreibung prüfen */
-      correctWords++;
-      if (wV !== wG) {
-        if (wV[0] !== wG[0]) {
-          if (wV[0] === wV[0].toUpperCase()) {
-            caseErrors.push(`„${wG}" muss großgeschrieben werden → „${wV}"`);
-            score -= 10;
-          } else {
-            caseErrors.push(`„${wG}" wird kleingeschrieben → „${wV}"`);
-            score -= 10;
-          }
+    for (let y = Math.floor(wi.y * sy); y < Math.ceil((wi.y + wi.h) * sy); y++) {
+      for (let x = bx0; x < bx1; x++) {
+        const idx = (y * cw + x) * 4;
+        const br = hwData.data[idx] * 0.299 + hwData.data[idx+1] * 0.587 + hwData.data[idx+2] * 0.114;
+        if (br < 140) {
+          if (y >= bandTop && y <= bandBottom) onLinePixels++;
+          else offLinePixels++;
         }
       }
-    } else if (dist <= Math.max(2, Math.floor(wV.length * 0.4))) {
-      /* Ähnlich genug = Tippfehler / Rechtschreibfehler */
-      spellingErrors.push(`„${wV}" wurde als „${wG}" geschrieben`);
-      score -= 15;
-    } else {
-      /* Sehr verschieden – möglicherweise OCR-Fehler */
-      spellingErrors.push(`„${wV}" wurde als „${wG}" erkannt – bitte prüfe dieses Wort`);
-      score -= 15;
     }
   });
-
-  /* Fehlende Wörter */
-  if (missingWords.length > 0) {
-    missingWords.forEach(w =>
-      punkte.push({ typ: 'error', text: `Wort fehlt: „${w}"` }));
-  }
-  /* Zusätzliche Wörter */
-  if (extraWords.length > 0) {
-    extraWords.forEach(w =>
-      punkte.push({ typ: 'error', text: `Zusätzliches Wort: „${w}"` }));
-  }
-  /* Rechtschreibfehler */
-  if (spellingErrors.length > 0) {
-    spellingErrors.forEach(e => punkte.push({ typ: 'error', text: e }));
-  }
-  /* Groß-/Kleinschreibung */
-  if (caseErrors.length > 0) {
-    caseErrors.forEach(e => punkte.push({ typ: 'error', text: e }));
-  } else if (correctWords > 0) {
-    punkte.push({ typ: 'ok', text: 'Groß- und Kleinschreibung ist korrekt.' });
+  const lineTotal = onLinePixels + offLinePixels;
+  if (lineTotal > 50) {
+    const lineRatio = onLinePixels / lineTotal;
+    if (lineRatio >= 0.75) {
+      punkte.push({ typ: 'ok', text: 'Deine Buchstaben sitzen gut auf der Grundlinie.' });
+    } else if (lineRatio >= 0.50) {
+      punkte.push({ typ: 'warn', text: 'Einige Buchstaben rutschen von der Grundlinie ab. Versuche, genauer auf der orangenen Linie zu schreiben.' });
+      score -= 8;
+    } else {
+      punkte.push({ typ: 'warn', text: 'Viele Buchstaben stehen nicht auf der Grundlinie. Achte darauf, dass die Buchstaben die orangene Linie berühren.' });
+      score -= 12;
+    }
   }
 
-  /* Richtige Wörter zusammenfassen */
-  if (correctWords > 0) {
-    punkte.push({ typ: 'ok', text: `${correctWords} von ${wordsV.length} Wörtern richtig erkannt.` });
+  /* ── 6. Gleichmäßigkeit: Ist die Tinte über alle Wort-Boxen
+         ähnlich dicht verteilt? ── */
+  const ratios = presentWords.map(w => w.inkRatio);
+  if (ratios.length >= 3) {
+    const avg = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+    const variance = ratios.reduce((s, r) => s + (r - avg) ** 2, 0) / ratios.length;
+    const cv = avg > 0 ? Math.sqrt(variance) / avg : 0;
+    if (cv < 0.5) {
+      punkte.push({ typ: 'ok', text: 'Die Buchstabengröße ist schön gleichmäßig.' });
+    } else if (cv < 1.0) {
+      punkte.push({ typ: 'warn', text: 'Die Buchstabengröße schwankt etwas. Versuche, alle Buchstaben gleich groß zu schreiben.' });
+      score -= 5;
+    } else {
+      punkte.push({ typ: 'warn', text: 'Die Buchstaben sind sehr unterschiedlich groß. Übe, gleichmäßiger zu schreiben.' });
+      score -= 10;
+    }
   }
 
-  /* Satzzeichen */
+  /* ── 7. Satzzeichen: prüfe ob ganz rechts am Ende
+         der letzten beschriebenen Zeile ein Punkt steht ── */
   const lastCharV = vorgabe.trim().slice(-1);
-  const lastCharG = geschrieben.trim().slice(-1);
   if ('.!?'.includes(lastCharV)) {
-    if (lastCharG === lastCharV) {
-      punkte.push({ typ: 'ok', text: 'Satzzeichen am Ende ist korrekt.' });
-    } else if (!'.!?'.includes(lastCharG)) {
-      punkte.push({ typ: 'error', text: 'Der Punkt am Satzende fehlt.' });
+    const lastWord = layout.words[layout.words.length - 1];
+    const dotX0 = (lastWord.x + lastWord.w) * sx;
+    const dotX1 = Math.min(dotX0 + 20 * sx, cw);
+    const dotY0 = (lastWord.baseline - 5) * sy;
+    const dotY1 = (lastWord.baseline + 8) * sy;
+    const dotInk = countInk(hwData, dotX0, dotY0, dotX1, dotY1, cw);
+    /* Auch prüfen ob der Punkt im letzten Wort enthalten sein könnte */
+    const lastWordInk = wordResults[wordResults.length - 1];
+    if (dotInk.ink > 3 || (lastWordInk && lastWordInk.present)) {
+      punkte.push({ typ: 'ok', text: 'Am Satzende scheint ein Satzzeichen zu stehen.' });
+    } else {
+      punkte.push({ typ: 'warn', text: `Hast du den Punkt am Satzende nicht vergessen?` });
       score -= 5;
     }
   }
 
-  /* Hinweis zur Browser-Erkennung */
-  punkte.push({ typ: 'warn', text: 'Hinweis: Die Erkennung läuft automatisch im Browser und kann Fehler machen. Lass am besten eine Lehrerin oder einen Erwachsenen drüberschauen!' });
+  /* ── 8. Genereller Hinweis ── */
+  punkte.push({ typ: 'warn', text: 'Hinweis: Diese Auswertung vergleicht die Position und Form deiner Schrift mit der Vorlage. Den genauen Inhalt (Rechtschreibung) kann sie nicht prüfen – lass am besten auch eine Lehrerin oder einen Erwachsenen drüberschauen!' });
 
+  /* ── Score & Ergebnis ── */
   score = Math.max(0, Math.min(100, score));
 
   let emoji, titel, untertitel;
   if (score >= 90) {
     emoji = '🌟'; titel = 'Super geschrieben!';
-    untertitel = 'Das sieht richtig toll aus – weiter so!';
+    untertitel = 'Deine Schrift sieht richtig ordentlich aus – weiter so!';
   } else if (score >= 70) {
     emoji = '👍'; titel = 'Gut gemacht!';
     untertitel = 'Nur ein paar Kleinigkeiten – du bist auf dem richtigen Weg!';
@@ -918,23 +786,6 @@ function compareTexts(vorgabe, geschrieben) {
   }
 
   return { score, emoji, titel, untertitel, punkte };
-}
-
-/* ── Fallback: wenn Tesseract nicht geladen werden kann ── */
-function fallback(errorMsg) {
-  const detail = errorMsg
-    ? `Fehlerdetail: ${errorMsg}`
-    : 'Bitte prüfe deine Internetverbindung und versuche es erneut.';
-  return {
-    score: 0, emoji: '⚠️',
-    titel: 'Schrifterkennung nicht verfügbar',
-    untertitel: 'Sowohl die Texterkennung als auch die Bildanalyse konnten nicht ausgeführt werden.',
-    punkte: [
-      { typ: 'error', text: `Die Texterkennung konnte nicht geladen werden. ${detail}` },
-      { typ: 'warn',  text: 'Tipp: Die Seite muss über einen Webserver aufgerufen werden (nicht als lokale Datei), damit die Erkennung funktioniert. Alternativ einfach den Text von einer Lehrerin prüfen lassen.' },
-      { typ: 'ok',    text: 'Du kannst trotzdem weiterüben – Übung macht den Meister!' },
-    ]
-  };
 }
 
 function showResult(r) {
