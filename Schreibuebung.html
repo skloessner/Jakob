@@ -592,8 +592,17 @@ async function checkWriting() {
   const satz = SAETZE[satzIdx % SAETZE.length];
 
   let result;
-  try   { result = await recognizeAndCompare(satz, exp, btn); }
-  catch (e) { console.error('OCR-Fehler:', e); result = fallback(); }
+  try {
+    result = await recognizeAndCompare(satz, exp, btn);
+  } catch (e) {
+    console.error('OCR-Fehler:', e);
+    /* Tesseract hat nicht funktioniert → visuelle Analyse als Fallback */
+    try {
+      result = analyzeVisually(satz, exp, W, H);
+    } catch (_) {
+      result = fallback(e.message || '');
+    }
+  }
 
   showResult(result);
   btn.textContent = '🔍 Überprüfen';
@@ -602,17 +611,46 @@ async function checkWriting() {
 
 /* ── Tesseract OCR + lokaler Vergleich ── */
 async function recognizeAndCompare(vorgabe, canvas, btn) {
-  /* Schritt 1 – Tesseract-Worker starten */
+  /* Prüfe ob Tesseract überhaupt geladen wurde */
+  if (typeof Tesseract === 'undefined') {
+    throw new Error('Tesseract.js konnte nicht vom CDN geladen werden.');
+  }
+
+  /* Schritt 1 – Tesseract-Worker starten mit expliziten Pfaden */
   btn.textContent = '🔤 Lade Texterkennung…';
 
-  const worker = await Tesseract.createWorker('deu', 1, {
-    logger: () => {}          /* stille Logs */
+  /* Timeout: nach 30 Sek. abbrechen */
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Zeitüberschreitung beim Laden der Texterkennung.')), 30000));
+
+  const createW = Tesseract.createWorker('deu', 1, {
+    workerPath : 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+    corePath   : 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+    langPath   : 'https://tessdata.projectnaptha.com/4.0.0',
+    logger     : m => {
+      if (m.status === 'loading tesseract core')
+        btn.textContent = '⚙️ Lade OCR-Engine…';
+      else if (m.status === 'loading language traineddata')
+        btn.textContent = '🔤 Lade deutsche Sprachdaten…';
+      else if (m.status === 'initializing tesseract')
+        btn.textContent = '⚙️ Initialisiere…';
+      else if (m.status === 'recognizing text')
+        btn.textContent = '🔍 Erkenne Schrift…';
+    }
   });
+
+  const worker = await Promise.race([createW, timeout]);
 
   /* Schritt 2 – OCR auf dem Canvas */
   btn.textContent = '🔍 Schrift wird erkannt…';
-  const { data } = await worker.recognize(canvas);
-  await worker.terminate();
+
+  let data;
+  try {
+    const ret = await worker.recognize(canvas);
+    data = ret.data;
+  } finally {
+    await worker.terminate();
+  }
 
   let geschrieben = (data.text || '').trim()
     .replace(/\n+/g, ' ')
@@ -621,8 +659,8 @@ async function recognizeAndCompare(vorgabe, canvas, btn) {
   /* Typische OCR-Korrekturen für deutsche Handschrift */
   geschrieben = geschrieben
     .replace(/[|]/g, 'l')
-    .replace(/0(?=[a-zäöü])/g, 'o')   /* 0 → o vor Kleinbuchstaben */
-    .replace(/1(?=[a-zäöü])/g, 'l');   /* 1 → l vor Kleinbuchstaben */
+    .replace(/0(?=[a-zäöü])/g, 'o')
+    .replace(/1(?=[a-zäöü])/g, 'l');
 
   /* Nichts erkannt? → eigene Meldung */
   if (!geschrieben || geschrieben.length < 2) {
@@ -641,6 +679,122 @@ async function recognizeAndCompare(vorgabe, canvas, btn) {
   /* Schritt 3 – Vergleich */
   btn.textContent = '📝 Wird verglichen…';
   return compareTexts(vorgabe, geschrieben);
+}
+
+/* ══════════════════════════════════════════════════
+   VISUELLE ANALYSE (Fallback wenn Tesseract nicht lädt)
+   Vergleicht Schreibfläche rein pixelbasiert –
+   keine echte OCR, aber nützliches Feedback.
+══════════════════════════════════════════════════ */
+function analyzeVisually(vorgabe, canvas, W, H) {
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const px = imgData.data;
+
+  /* Zähle dunkle Pixel (Tinte) */
+  let inkPixels = 0;
+  const totalPixels = canvas.width * canvas.height;
+  for (let i = 0; i < px.length; i += 4) {
+    const brightness = px[i] * 0.299 + px[i+1] * 0.587 + px[i+2] * 0.114;
+    if (brightness < 120) inkPixels++;
+  }
+  const inkRatio = inkPixels / totalPixels;
+
+  /* Erwartete Wortanzahl → erwartete ungefähre Tintenabdeckung */
+  const wordCount  = vorgabe.split(/\s+/).length;
+  const charCount  = vorgabe.replace(/\s/g, '').length;
+
+  /* Zeilen-Analyse: prüfe ob in jeder erwarteten Zeile Tinte ist */
+  const rowH = Math.round(canvas.height / ROWS);
+  const rowInk = [];
+  for (let r = 0; r < ROWS; r++) {
+    let count = 0;
+    const y0 = r * rowH;
+    const y1 = Math.min((r + 1) * rowH, canvas.height);
+    for (let y = y0; y < y1; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const idx = (y * canvas.width + x) * 4;
+        const br = px[idx] * 0.299 + px[idx+1] * 0.587 + px[idx+2] * 0.114;
+        if (br < 120) count++;
+      }
+    }
+    rowInk.push(count);
+  }
+
+  /* Wörter-Spalten: zähle Lücken im Tintenprofil (grobe Wortanzahl) */
+  const colBins = 100;
+  const binW = Math.floor(canvas.width / colBins);
+  const colInk = new Array(colBins).fill(0);
+  for (let b = 0; b < colBins; b++) {
+    const x0 = b * binW;
+    const x1 = Math.min(x0 + binW, canvas.width);
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = x0; x < x1; x++) {
+        const idx = (y * canvas.width + x) * 4;
+        const br = px[idx] * 0.299 + px[idx+1] * 0.587 + px[idx+2] * 0.114;
+        if (br < 120) colInk[b]++;
+      }
+    }
+  }
+  const threshold = Math.max(...colInk) * 0.05;
+  let estimatedWords = 0;
+  let inWord = false;
+  for (let b = 0; b < colBins; b++) {
+    if (colInk[b] > threshold && !inWord)  { estimatedWords++; inWord = true; }
+    if (colInk[b] <= threshold && inWord) { inWord = false; }
+  }
+
+  /* Feedback zusammenbauen */
+  const punkte = [];
+  let score = 100;
+
+  /* 1. Tintenmenge */
+  if (inkRatio < 0.001) {
+    punkte.push({ typ: 'error', text: 'Es wurde fast nichts geschrieben. Schreibe den ganzen Satz ab!' });
+    score -= 50;
+  } else if (inkRatio < 0.005) {
+    punkte.push({ typ: 'warn', text: 'Es wurde relativ wenig geschrieben – fehlen vielleicht Wörter?' });
+    score -= 20;
+  } else {
+    punkte.push({ typ: 'ok', text: 'Du hast gut sichtbar geschrieben.' });
+  }
+
+  /* 2. Geschätzte Wortanzahl */
+  const wordDiff = Math.abs(estimatedWords - wordCount);
+  if (wordDiff <= 1) {
+    punkte.push({ typ: 'ok', text: `Die Wortanzahl sieht passend aus (ungefähr ${estimatedWords} erkannt, ${wordCount} erwartet).` });
+  } else if (estimatedWords < wordCount) {
+    punkte.push({ typ: 'warn', text: `Es scheinen Wörter zu fehlen (ungefähr ${estimatedWords} erkannt, ${wordCount} erwartet).` });
+    score -= 10 * wordDiff;
+  } else {
+    punkte.push({ typ: 'warn', text: `Es wurden mehr Wörter erkannt als erwartet (ungefähr ${estimatedWords} statt ${wordCount}).` });
+    score -= 5;
+  }
+
+  /* 3. Zeilenverteilung */
+  const usedRows = rowInk.filter(c => c > 50).length;
+  if (usedRows >= 1) {
+    punkte.push({ typ: 'ok', text: `Deine Schrift verteilt sich auf ${usedRows} Zeile${usedRows > 1 ? 'n' : ''}.` });
+  }
+
+  /* 4. Hinweis zur eingeschränkten Analyse */
+  punkte.push({ typ: 'warn', text: 'Hinweis: Die vollständige Texterkennung konnte nicht geladen werden. Diese Auswertung basiert nur auf der Bildanalyse und kann den Inhalt nicht lesen. Bitte lass eine Lehrerin oder einen Erwachsenen deinen Text prüfen!' });
+
+  score = Math.max(0, Math.min(100, score));
+
+  let emoji, titel, untertitel;
+  if (score >= 80) {
+    emoji = '👍'; titel = 'Sieht gut aus!';
+    untertitel = 'Die Schrift sieht ordentlich aus – lass den Inhalt am besten von jemandem prüfen.';
+  } else if (score >= 50) {
+    emoji = '💪'; titel = 'Guter Versuch!';
+    untertitel = 'Schau dir die Hinweise an und versuche es noch einmal.';
+  } else {
+    emoji = '🤔'; titel = 'Noch einmal versuchen';
+    untertitel = 'Schreibe langsam und deutlich – du schaffst das!';
+  }
+
+  return { score, emoji, titel, untertitel, punkte };
 }
 
 /* ── Lokaler Textvergleich ── */
@@ -767,14 +921,17 @@ function compareTexts(vorgabe, geschrieben) {
 }
 
 /* ── Fallback: wenn Tesseract nicht geladen werden kann ── */
-function fallback() {
+function fallback(errorMsg) {
+  const detail = errorMsg
+    ? `Fehlerdetail: ${errorMsg}`
+    : 'Bitte prüfe deine Internetverbindung und versuche es erneut.';
   return {
     score: 0, emoji: '⚠️',
     titel: 'Schrifterkennung nicht verfügbar',
-    untertitel: 'Deine Schrift konnte leider nicht automatisch ausgewertet werden.',
+    untertitel: 'Sowohl die Texterkennung als auch die Bildanalyse konnten nicht ausgeführt werden.',
     punkte: [
-      { typ: 'error', text: 'Die Texterkennung konnte nicht geladen werden. Beim ersten Mal werden Erkennungsdaten aus dem Internet geladen – bitte prüfe deine Internetverbindung und versuche es erneut.' },
-      { typ: 'warn',  text: 'Zeige deinen geschriebenen Satz am besten einer Lehrerin oder einem Erwachsenen, damit sie ihn überprüfen können.' },
+      { typ: 'error', text: `Die Texterkennung konnte nicht geladen werden. ${detail}` },
+      { typ: 'warn',  text: 'Tipp: Die Seite muss über einen Webserver aufgerufen werden (nicht als lokale Datei), damit die Erkennung funktioniert. Alternativ einfach den Text von einer Lehrerin prüfen lassen.' },
       { typ: 'ok',    text: 'Du kannst trotzdem weiterüben – Übung macht den Meister!' },
     ]
   };
