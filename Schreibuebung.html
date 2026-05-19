@@ -168,6 +168,7 @@ h1 em { color: var(--accent); font-style: normal; }
 .fb-err {background:#fef2f2;color:#991b1b;}
 .fb-ico {font-size:1rem;flex-shrink:0;margin-top:1px;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -522,132 +523,258 @@ function nextSentence() {
 }
 
 /* ══════════════════════════════════════════════════
-   KI-AUSWERTUNG
+   AUSWERTUNG – komplett lokal im Browser
+   (Tesseract.js OCR + Textvergleich)
 ══════════════════════════════════════════════════ */
+
+/* Levenshtein-Distanz für unscharfen Wortvergleich */
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m + 1}, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+/* Bestes Alignment zweier Wortlisten (einfaches DP) –
+   gibt Array von Paaren [vorgabeWort|null, geschriebenesWort|null] */
+function alignWords(va, ga) {
+  const m = va.length, n = ga.length;
+  const dp = Array.from({length: m+1}, () => Array(n+1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++) {
+      const cost = va[i-1].toLowerCase() === ga[j-1].toLowerCase() ? 0 : 1;
+      dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+    }
+  // Backtrack
+  const pairs = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && dp[i][j] === dp[i-1][j-1] + (va[i-1].toLowerCase()===ga[j-1].toLowerCase()?0:1)) {
+      pairs.push([va[--i], ga[--j]]);
+    } else if (i > 0 && dp[i][j] === dp[i-1][j] + 1) {
+      pairs.push([va[--i], null]);
+    } else {
+      pairs.push([null, ga[--j]]);
+    }
+  }
+  return pairs.reverse();
+}
+
+/* ── Hauptfunktion: Überprüfen-Button ── */
 async function checkWriting() {
   if (!hasContent) { alert('Bitte zuerst schreiben! ✏️'); return; }
 
   const btn = document.getElementById('checkBtn');
   btn.textContent = '🔍 Schrift wird gelesen…';
-  // Kleines Timeout damit Browser den Button-Text rendert
   await new Promise(r => setTimeout(r, 30));
   btn.disabled = true;
 
-  // Komposit-Bild: weißer BG + Linien + Handschrift
-  const W   = wrap.clientWidth;
-  const H   = parseInt(drC.style.height) || ROW_H * ROWS + PAD * 2;
+  /* Sauberes Bild: nur Handschrift auf Weiß (ohne Hilfslinien) */
+  const W = wrap.clientWidth;
+  const H = parseInt(drC.style.height) || ROW_H * ROWS + PAD * 2;
   const exp = document.createElement('canvas');
   exp.width  = Math.round(W * dpr);
   exp.height = Math.round(H * dpr);
-  const ex  = exp.getContext('2d');
+  const ex = exp.getContext('2d');
   ex.scale(dpr, dpr);
-  ex.fillStyle = '#fffef9';
+  ex.fillStyle = '#ffffff';
   ex.fillRect(0, 0, W, H);
-  drawLines(ex, W, H);
   ex.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, W, H);
 
-  const b64  = exp.toDataURL('image/png').split(',')[1];
   const satz = SAETZE[satzIdx % SAETZE.length];
 
   let result;
-  try   { result = await analyzeWithClaude(satz, b64); }
-  catch { result = fallback(); }
+  try   { result = await recognizeAndCompare(satz, exp, btn); }
+  catch (e) { console.error('OCR-Fehler:', e); result = fallback(); }
 
   showResult(result);
   btn.textContent = '🔍 Überprüfen';
   btn.disabled = false;
 }
 
-async function analyzeWithClaude(vorgabe, b64) {
-  // ── SCHRITT 1: Handschrift als Text abtippen (OCR) ──────────────────────
-  const ocrPrompt = `Bitte tippe den handgeschriebenen Text auf diesem Bild exakt ab – Buchstabe für Buchstabe, Groß- und Kleinschreibung beachten, Satzzeichen übernehmen.
-Antworte NUR mit dem abgetippten Text, ohne Erklärung oder Anführungszeichen.`;
+/* ── Tesseract OCR + lokaler Vergleich ── */
+async function recognizeAndCompare(vorgabe, canvas, btn) {
+  /* Schritt 1 – Tesseract-Worker starten */
+  btn.textContent = '🔤 Lade Texterkennung…';
 
-  const ocrRes = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 300,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64 } },
-          { type: 'text',  text: ocrPrompt }
-        ]
-      }]
-    })
-  });
-  const ocrData    = await ocrRes.json();
-  const geschrieben = (ocrData.content || []).map(i => i.text || '').join('').trim();
-  document.getElementById('checkBtn').textContent = '📝 Wird verglichen…';
-
-  // ── SCHRITT 2: Zeichengenauer Vergleich + Feedback ──────────────────────
-  const analysePrompt = `Du bist Grundschullehrerin im Saarland. Vergleiche den vom Schüler geschriebenen Satz zeichengenau mit der Vorlage.
-
-VORLAGE:   "${vorgabe}"
-GESCHRIEBEN: "${geschrieben}"
-
-Führe folgende Prüfungen durch:
-
-1. TRANSKRIPTION: Zeige dem Schüler, was du gelesen hast:
-   → Notiere den abgelesenen Satz als Feedback-Punkt (typ: "ok"), z.B. „Ich habe gelesen: »${geschrieben}«"
-
-2. WORT-FÜR-WORT-VERGLEICH: Vergleiche beide Sätze Wort für Wort:
-   - Fehlende Wörter → typ: "error", konkret benennen
-   - Zusätzliche Wörter → typ: "error", konkret benennen
-   - Falsch geschriebene Wörter → typ: "error", z.B. „'Hund' wurde als 'Hunt' geschrieben"
-   - Korrekte Wörter → zusammenfassend als typ: "ok"
-
-3. GROSS-/KLEINSCHREIBUNG (Wort für Wort prüfen):
-   - Satzanfang: muss Großbuchstabe sein
-   - Substantive/Nomen: müssen Großbuchstaben haben
-   - Alle anderen Wörter: müssen Kleinbuchstaben haben
-   - Jeden Fehler als typ: "error" melden, z.B. „'katze' muss großgeschrieben werden (Substantiv)"
-   - Wenn alles korrekt: typ: "ok"
-
-4. SATZZEICHEN:
-   - Punkt am Satzende vorhanden? Wenn nicht: typ: "error"
-   - Falsche oder überflüssige Zeichen? Wenn ja: typ: "error"
-   - Wenn korrekt: typ: "ok"
-
-5. SCHRIFT (aus dem Bild beurteilen):
-   - Unleserliche Buchstaben → typ: "warn"
-   - Buchstabenhöhe / Linienführung → typ: "warn" wenn auffällig
-   - Wenn gut lesbar: typ: "ok"
-
-Berechne den Score (0–100): Beginne bei 100, ziehe ab: je Rechtschreibfehler −15, je Groß-/Kleinschreibungsfehler −10, fehlender Punkt −5, fehlendes Wort −15, unleserlicher Buchstabe −5.
-
-Antworte NUR mit gültigem JSON (kein Markdown, keine Backticks):
-{"score":75,"emoji":"👍","titel":"Gut geschrieben!","untertitel":"Du machst das super – weiter so!","punkte":[{"typ":"ok","text":"Beispiel"},{"typ":"error","text":"Beispiel"}]}`;
-
-  const res  = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1200,
-      messages: [{
-        role: 'user',
-        content: [{ type: 'text', text: analysePrompt }]
-      }]
-    })
+  const worker = await Tesseract.createWorker('deu', 1, {
+    logger: () => {}          /* stille Logs */
   });
 
-  const data  = await res.json();
-  const raw   = (data.content || []).map(i => i.text || '').join('');
-  const clean = raw.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  /* Schritt 2 – OCR auf dem Canvas */
+  btn.textContent = '🔍 Schrift wird erkannt…';
+  const { data } = await worker.recognize(canvas);
+  await worker.terminate();
+
+  let geschrieben = (data.text || '').trim()
+    .replace(/\n+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  /* Typische OCR-Korrekturen für deutsche Handschrift */
+  geschrieben = geschrieben
+    .replace(/[|]/g, 'l')
+    .replace(/0(?=[a-zäöü])/g, 'o')   /* 0 → o vor Kleinbuchstaben */
+    .replace(/1(?=[a-zäöü])/g, 'l');   /* 1 → l vor Kleinbuchstaben */
+
+  /* Nichts erkannt? → eigene Meldung */
+  if (!geschrieben || geschrieben.length < 2) {
+    return {
+      score: 0, emoji: '🤔',
+      titel: 'Schrift nicht erkannt',
+      untertitel: 'Die Texterkennung konnte deine Buchstaben leider nicht lesen.',
+      punkte: [
+        { typ: 'error', text: 'Deine Buchstaben konnten nicht erkannt werden. Versuche, deutlicher und etwas größer zu schreiben.' },
+        { typ: 'warn',  text: 'Tipp: Schreibe jeden Buchstaben einzeln und klar auf die orangene Grundlinie.' },
+        { typ: 'ok',    text: 'Nicht aufgeben – probiere es noch einmal!' }
+      ]
+    };
+  }
+
+  /* Schritt 3 – Vergleich */
+  btn.textContent = '📝 Wird verglichen…';
+  return compareTexts(vorgabe, geschrieben);
 }
 
+/* ── Lokaler Textvergleich ── */
+function compareTexts(vorgabe, geschrieben) {
+  const punkte = [];
+  let score = 100;
+
+  /* Was wurde erkannt? */
+  punkte.push({ typ: 'ok', text: `Ich habe gelesen: »${geschrieben}«` });
+
+  /* Normalisierung für Wortvergleich */
+  const stripPunct = s => s.replace(/[.,!?;:]+$/g, '').trim();
+  const wordsV = stripPunct(vorgabe).split(/\s+/);
+  const wordsG = stripPunct(geschrieben).split(/\s+/);
+
+  /* Alignment der Wortlisten */
+  const pairs = alignWords(wordsV, wordsG);
+
+  let correctWords  = 0;
+  let spellingErrors = [];
+  let caseErrors     = [];
+  let missingWords   = [];
+  let extraWords     = [];
+
+  pairs.forEach(([wV, wG]) => {
+    if (wV && !wG) {
+      missingWords.push(wV);
+      score -= 15;
+      return;
+    }
+    if (!wV && wG) {
+      extraWords.push(wG);
+      score -= 10;
+      return;
+    }
+
+    /* Beide vorhanden → vergleichen */
+    const dist = levenshtein(wV.toLowerCase(), wG.toLowerCase());
+
+    if (dist === 0) {
+      /* Inhaltlich gleich → Groß-/Kleinschreibung prüfen */
+      correctWords++;
+      if (wV !== wG) {
+        if (wV[0] !== wG[0]) {
+          if (wV[0] === wV[0].toUpperCase()) {
+            caseErrors.push(`„${wG}" muss großgeschrieben werden → „${wV}"`);
+            score -= 10;
+          } else {
+            caseErrors.push(`„${wG}" wird kleingeschrieben → „${wV}"`);
+            score -= 10;
+          }
+        }
+      }
+    } else if (dist <= Math.max(2, Math.floor(wV.length * 0.4))) {
+      /* Ähnlich genug = Tippfehler / Rechtschreibfehler */
+      spellingErrors.push(`„${wV}" wurde als „${wG}" geschrieben`);
+      score -= 15;
+    } else {
+      /* Sehr verschieden – möglicherweise OCR-Fehler */
+      spellingErrors.push(`„${wV}" wurde als „${wG}" erkannt – bitte prüfe dieses Wort`);
+      score -= 15;
+    }
+  });
+
+  /* Fehlende Wörter */
+  if (missingWords.length > 0) {
+    missingWords.forEach(w =>
+      punkte.push({ typ: 'error', text: `Wort fehlt: „${w}"` }));
+  }
+  /* Zusätzliche Wörter */
+  if (extraWords.length > 0) {
+    extraWords.forEach(w =>
+      punkte.push({ typ: 'error', text: `Zusätzliches Wort: „${w}"` }));
+  }
+  /* Rechtschreibfehler */
+  if (spellingErrors.length > 0) {
+    spellingErrors.forEach(e => punkte.push({ typ: 'error', text: e }));
+  }
+  /* Groß-/Kleinschreibung */
+  if (caseErrors.length > 0) {
+    caseErrors.forEach(e => punkte.push({ typ: 'error', text: e }));
+  } else if (correctWords > 0) {
+    punkte.push({ typ: 'ok', text: 'Groß- und Kleinschreibung ist korrekt.' });
+  }
+
+  /* Richtige Wörter zusammenfassen */
+  if (correctWords > 0) {
+    punkte.push({ typ: 'ok', text: `${correctWords} von ${wordsV.length} Wörtern richtig erkannt.` });
+  }
+
+  /* Satzzeichen */
+  const lastCharV = vorgabe.trim().slice(-1);
+  const lastCharG = geschrieben.trim().slice(-1);
+  if ('.!?'.includes(lastCharV)) {
+    if (lastCharG === lastCharV) {
+      punkte.push({ typ: 'ok', text: 'Satzzeichen am Ende ist korrekt.' });
+    } else if (!'.!?'.includes(lastCharG)) {
+      punkte.push({ typ: 'error', text: 'Der Punkt am Satzende fehlt.' });
+      score -= 5;
+    }
+  }
+
+  /* Hinweis zur Browser-Erkennung */
+  punkte.push({ typ: 'warn', text: 'Hinweis: Die Erkennung läuft automatisch im Browser und kann Fehler machen. Lass am besten eine Lehrerin oder einen Erwachsenen drüberschauen!' });
+
+  score = Math.max(0, Math.min(100, score));
+
+  let emoji, titel, untertitel;
+  if (score >= 90) {
+    emoji = '🌟'; titel = 'Super geschrieben!';
+    untertitel = 'Das sieht richtig toll aus – weiter so!';
+  } else if (score >= 70) {
+    emoji = '👍'; titel = 'Gut gemacht!';
+    untertitel = 'Nur ein paar Kleinigkeiten – du bist auf dem richtigen Weg!';
+  } else if (score >= 50) {
+    emoji = '💪'; titel = 'Guter Versuch!';
+    untertitel = 'Schau dir die Hinweise an und probiere es noch einmal.';
+  } else {
+    emoji = '🤔'; titel = 'Noch einmal versuchen';
+    untertitel = 'Schreibe langsam und deutlich – du schaffst das!';
+  }
+
+  return { score, emoji, titel, untertitel, punkte };
+}
+
+/* ── Fallback: wenn Tesseract nicht geladen werden kann ── */
 function fallback() {
   return {
     score: 0, emoji: '⚠️',
     titel: 'Schrifterkennung nicht verfügbar',
     untertitel: 'Deine Schrift konnte leider nicht automatisch ausgewertet werden.',
     punkte: [
-      { typ: 'error', text: 'Die Schrifterkennung konnte keine Verbindung zum Server herstellen. Bitte prüfe deine Internetverbindung und stelle sicher, dass ein gültiger API-Schlüssel hinterlegt ist.' },
-      { typ: 'warn',  text: 'Bitte zeige deinen geschriebenen Satz einer Lehrerin oder einem Erwachsenen, damit sie ihn überprüfen können.' },
+      { typ: 'error', text: 'Die Texterkennung konnte nicht geladen werden. Beim ersten Mal werden Erkennungsdaten aus dem Internet geladen – bitte prüfe deine Internetverbindung und versuche es erneut.' },
+      { typ: 'warn',  text: 'Zeige deinen geschriebenen Satz am besten einer Lehrerin oder einem Erwachsenen, damit sie ihn überprüfen können.' },
       { typ: 'ok',    text: 'Du kannst trotzdem weiterüben – Übung macht den Meister!' },
     ]
   };
