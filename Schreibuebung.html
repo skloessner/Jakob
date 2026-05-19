@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Schreibübung – Saarland Grundschule</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+/* Noto Sans: aufrechte, klare serifenlose Druckschrift – entspricht der
+   saarländischen Grundschul-Druckschrift (Lateinische Ausgangsschrift / Grundschrift) */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&display=swap');
+
+:root {
+  --bg:      #f2f6fd;
+  --paper:   #fffef9;
+  --ink:     #1a2e4a;
+  --accent:  #2563eb;
+  --green:   #16a34a;
+  --red:     #dc2626;
+  --amber:   #d97706;
+  --shadow:  rgba(30,60,120,0.10);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 14px 52px;
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+header {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; max-width: 860px; margin-bottom: 20px;
+}
+.logo {
+  width: 44px; height: 44px; border-radius: 13px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+  box-shadow: 0 3px 12px rgba(37,99,235,0.28);
+}
+h1 { font-size: 1.5rem; font-weight: 800; color: var(--ink); }
+h1 em { color: var(--accent); font-style: normal; }
+
+/* Progress */
+.prog-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; max-width: 860px; margin-bottom: 16px;
+}
+.prog-track { flex:1; height:7px; background:#dde8f8; border-radius:99px; overflow:hidden; }
+.prog-fill  { height:100%; background:linear-gradient(90deg,var(--accent),#06b6d4); border-radius:99px; transition:width .5s ease; width:0%; }
+.prog-label { font-size:.78rem; font-weight:700; color:#7a90b0; white-space:nowrap; }
+
+/* Card */
+.card {
+  background: var(--paper);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px var(--shadow);
+  padding: 20px 22px 18px;
+  width: 100%; max-width: 860px;
+  margin-bottom: 16px;
+}
+.card-label {
+  font-size: .72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.4px; color: #90a4be; margin-bottom: 10px;
+}
+
+/* ── Vorgabe-Satz: saarländische Druckschrift auf Linien ── */
+.vorgabe-outer {
+  position: relative;
+  background: #f7fbff;
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  overflow: hidden;
+  /* Höhe wird per JS gesetzt nachdem Text gerendert */
+}
+.vorgabe-canvas {
+  display: block;
+  width: 100%;
+  /* Höhe via JS */
+}
+
+/* ── Schreibbereich ── */
+.tool-row {
+  display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap;
+}
+.tool-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#90a4be; }
+.sz {
+  width:34px; height:34px; border-radius:50%;
+  border:2px solid #d0ddf0; background:#f2f6fd;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:border-color .15s;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.sz.on { border-color:var(--accent); background:#eff6ff; }
+.dot { background:#1a2e4a; border-radius:50%; pointer-events:none; }
+
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1.5px solid #dde8f8;
+  background: var(--paper);
+  /* KRITISCH: touch-action none damit Apple Pencil-Events nicht vom System
+     als Scroll interpretiert werden */
+  touch-action: none;
+  -webkit-touch-action: none;
+  cursor: crosshair;
+}
+#bgCanvas   { display:block; width:100%; position:absolute; top:0; left:0; pointer-events:none; z-index:1; }
+#drawCanvas { display:block; width:100%; position:relative; z-index:2;
+              touch-action:none; -webkit-touch-action:none; }
+
+.hint {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:.92rem; font-weight:600; color:#c0d0e4;
+  pointer-events:none; z-index:3;
+  display:flex; align-items:center; gap:6px; white-space:nowrap;
+}
+
+/* Buttons */
+.btn-row { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+.btn {
+  flex:1; min-width:110px; padding:13px 16px;
+  border-radius:13px; border:none;
+  font-family:'Nunito',sans-serif; font-size:.95rem; font-weight:700;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  cursor:pointer; transition:transform .1s, filter .1s;
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+}
+.btn:active { transform:scale(.95); }
+.btn-clear { background:#eef2fa; color:#5a6a80; }
+.btn-check { background:var(--accent); color:#fff; box-shadow:0 3px 14px rgba(37,99,235,.28); }
+.btn-next  { background:var(--green);  color:#fff; box-shadow:0 3px 14px rgba(22,163,74,.25); }
+
+/* Ergebnis */
+.result-card {
+  background:var(--paper); border-radius:18px; box-shadow:0 4px 24px var(--shadow);
+  padding:22px 24px; width:100%; max-width:860px; margin-bottom:16px;
+  display:none; animation:pop .32s cubic-bezier(.22,1,.36,1);
+}
+@keyframes pop { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+
+.score-row { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+.score-badge {
+  width:66px; height:66px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.55rem; font-weight:800; flex-shrink:0;
+}
+.s-great{background:#dcfce7;color:var(--green);}
+.s-ok   {background:#fef9c3;color:var(--amber);}
+.s-low  {background:#fee2e2;color:var(--red);}
+.score-text h2{font-size:1.18rem;font-weight:800;color:var(--ink);}
+.score-text p {font-size:.87rem;color:#7a90b0;margin-top:2px;}
+
+.fb-list{list-style:none;display:flex;flex-direction:column;gap:7px;}
+.fb-item{display:flex;align-items:flex-start;gap:9px;padding:9px 13px;border-radius:10px;font-size:.92rem;}
+.fb-ok  {background:#f0fdf4;color:#166534;}
+.fb-warn{background:#fefce8;color:#854d0e;}
+.fb-err {background:#fef2f2;color:#991b1b;}
+.fb-ico {font-size:1rem;flex-shrink:0;margin-top:1px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✏️</div>
+  <h1>Schreib<em>übung</em></h1>
+</header>
+
+<div class="prog-row">
+  <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+  <span class="prog-label" id="progLabel">0 / 10</span>
+</div>
+
+<!-- Vorgabe-Satz -->
+<div class="card">
+  <div class="card-label">✦ Schreibe diesen Satz nach</div>
+  <div class="vorgabe-outer" id="vorgabeOuter">
+    <canvas id="vorgabeCanvas" class="vorgabe-canvas"></canvas>
+  </div>
+</div>
+
+<!-- Schreiben -->
+<div class="card">
+  <div class="card-label">✦ Hier mit dem Apple Pencil schreiben</div>
+  <div class="tool-row">
+    <span class="tool-label">Stärke</span>
+    <button class="sz"    data-s="2"   onclick="setPen(2)"  ><span class="dot" style="width:4px;height:4px"></span></button>
+    <button class="sz on" data-s="4"   onclick="setPen(4)"  ><span class="dot" style="width:8px;height:8px"></span></button>
+    <button class="sz"    data-s="6.5" onclick="setPen(6.5)"><span class="dot" style="width:13px;height:13px"></span></button>
+  </div>
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="drawCanvas"></canvas>
+    <div class="hint" id="hint">✏️&nbsp; Hier schreiben</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-clear" onclick="clearDraw()">🗑 Löschen</button>
+    <button class="btn btn-check" id="checkBtn" onclick="checkWriting()">🔍 Überprüfen</button>
+  </div>
+</div>
+
+<!-- Ergebnis -->
+<div class="result-card" id="resultCard">
+  <div class="card-label">✦ Auswertung</div>
+  <div class="score-row">
+    <div class="score-badge" id="scoreBadge">?</div>
+    <div class="score-text"><h2 id="scoreTitle"></h2><p id="scoreSub"></p></div>
+  </div>
+  <ul class="fb-list" id="fbList"></ul>
+  <div class="btn-row" style="margin-top:16px">
+    <button class="btn btn-next" onclick="nextSentence()">➡ Nächster Satz</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════
+   SÄTZE – Grundschulniveau
+══════════════════════════════════════════════════ */
+const SAETZE = [
+  "Die Katze sitzt auf der Mauer.",
+  "Der Hund bellt laut im Garten.",
+  "Wir gehen heute in die Schule.",
+  "Das Kind malt ein buntes Bild.",
+  "Die Sonne scheint hell am Himmel.",
+  "Mama kauft frisches Brot beim Bäcker.",
+  "Der Zug fährt durch den langen Tunnel.",
+  "Heute ist Mittwoch und wir haben Sport.",
+  "Die Blumen im Garten duften sehr schön.",
+  "Mein Bruder liest ein spannendes Buch.",
+  "Die Vögel singen morgens im Baum.",
+  "Wir trinken Kakao und essen Kekse.",
+  "Das Fußballspiel beginnt um drei Uhr.",
+  "Im Winter liegt Schnee auf den Feldern.",
+  "Opa und Oma besuchen uns am Samstag.",
+];
+
+let satzIdx   = 0;
+let doneCount = 0;
+let penSize   = 4;
+let drawing   = false;
+let hasContent = false;
+let lastX = 0, lastY = 0, lastPressure = 0.5;
+
+/* ── Offscreen-Canvas: speichert alle Striche persistent ── */
+const offscreen = document.createElement('canvas');
+const offCtx    = offscreen.getContext('2d');
+
+const bgC  = document.getElementById('bgCanvas');
+const bgX  = bgC.getContext('2d');
+const drC  = document.getElementById('drawCanvas');
+const drX  = drC.getContext('2d');
+const wrap = document.getElementById('canvasWrap');
+
+const ROWS   = 3;
+const ROW_H  = 82;
+const PAD    = 12;
+const dpr    = window.devicePixelRatio || 1;
+
+/* ── Canvas initialisieren / Resize ── */
+function initCanvases() {
+  const W = wrap.clientWidth;
+  const H = ROW_H * ROWS + PAD * 2;
+  const pw = Math.round(W * dpr);
+  const ph = Math.round(H * dpr);
+
+  [bgC, drC].forEach(c => {
+    c.width  = pw; c.height = ph;
+    c.style.width = W + 'px'; c.style.height = H + 'px';
+  });
+  offscreen.width  = pw;
+  offscreen.height = ph;
+
+  // Contexts neu skalieren
+  [bgX, drX, offCtx].forEach(cx => {
+    cx.setTransform(1,0,0,1,0,0);
+    cx.scale(dpr, dpr);
+  });
+
+  drawLines(bgX, W, H);
+  repaintDraw(W, H);
+}
+
+function drawLines(ctx, W, H) {
+  ctx.clearRect(0, 0, W, H);
+  for (let r = 0; r < ROWS; r++) {
+    const y0 = PAD + r * ROW_H;
+    // Oberlinie (hellblau)
+    hline(ctx, y0 + ROW_H * 0.06, W, 'rgba(100,160,225,0.55)', 1.0);
+    // Mittellinie gestrichelt
+    hlineDash(ctx, y0 + ROW_H * 0.40, W, 'rgba(100,160,225,0.28)', 0.8);
+    // Grundlinie (orange – Schreiblinie)
+    hline(ctx, y0 + ROW_H * 0.68, W, 'rgba(210,130,55,0.85)', 3.0);
+    // Unterlinie
+    hline(ctx, y0 + ROW_H * 0.93, W, 'rgba(100,160,225,0.32)', 0.8);
+  }
+}
+
+function hline(ctx, y, W, color, lw) {
+  ctx.setLineDash([]);
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(14, y); ctx.lineTo(W - 8, y); ctx.stroke();
+}
+function hlineDash(ctx, y, W, color, lw) {
+  ctx.setLineDash([5, 9]);
+  ctx.strokeStyle = color; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(14, y); ctx.lineTo(W - 8, y); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function repaintDraw(W, H) {
+  drX.clearRect(0, 0, W, H);
+  // Offscreen auf drawCanvas projizieren
+  drX.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, W, H);
+}
+
+/* ── Vorgabe-Satz als Druckschrift auf Linien rendern ── */
+function renderVorgabe(satz) {
+  const outer = document.getElementById('vorgabeOuter');
+  const vc    = document.getElementById('vorgabeCanvas');
+  const W     = outer.clientWidth || 600;
+
+  /* Druckschrift-Einstellungen:
+     - Noto Sans = aufrechte, serifenlose Einzelbuchstaben
+     - Kein Italic, kein Bold → reiner Grundschrift-Charakter
+     - Buchstabengröße: 36px = typische Größe auf 4-Linien-Heft */
+  const FONT_SIZE = Math.min(36, W * 0.048);
+  const LINE_H_V  = FONT_SIZE * 2.6;
+  const PAD_V     = FONT_SIZE * 0.9;
+
+  // Font laden und dann zeichnen
+  const font = `${FONT_SIZE}px 'Noto Sans', Arial, sans-serif`;
+
+  // Temporär messen
+  const tmpC = document.createElement('canvas');
+  const tmpX = tmpC.getContext('2d');
+  tmpX.font  = font;
+
+  // Wörter umbrechen
+  const words   = satz.split(' ');
+  const maxW    = W - 36;
+  let lines     = [];
+  let cur       = '';
+  words.forEach(w => {
+    const test = cur ? cur + ' ' + w : w;
+    if (tmpX.measureText(test).width > maxW && cur) {
+      lines.push(cur); cur = w;
+    } else { cur = test; }
+  });
+  if (cur) lines.push(cur);
+
+  const H = lines.length * LINE_H_V + PAD_V * 2;
+
+  vc.width  = Math.round(W * dpr);
+  vc.height = Math.round(H * dpr);
+  vc.style.width  = W + 'px';
+  vc.style.height = H + 'px';
+
+  const vx = vc.getContext('2d');
+  vx.setTransform(1,0,0,1,0,0);
+  vx.scale(dpr, dpr);
+
+  // Hintergrund
+  vx.fillStyle = '#f7fbff';
+  vx.fillRect(0, 0, W, H);
+
+  lines.forEach((ln, i) => {
+    const y0     = PAD_V + i * LINE_H_V;
+    const base   = y0 + LINE_H_V * 0.65; // Grundlinie
+    const top    = y0 + LINE_H_V * 0.08;
+    const mid    = y0 + LINE_H_V * 0.37;
+    const bottom = y0 + LINE_H_V * 0.91;
+
+    // Linien zeichnen
+    hline(vx, top,    W, 'rgba(100,160,225,0.45)', 0.9);
+    hlineDash(vx, mid, W, 'rgba(100,160,225,0.25)', 0.8);
+    hline(vx, base,   W, 'rgba(210,130,55,0.80)',  3.0);
+    hline(vx, bottom, W, 'rgba(100,160,225,0.28)', 0.8);
+
+    // Text auf Grundlinie
+    vx.font      = font;
+    vx.fillStyle = '#1a2e4a';
+    vx.textBaseline = 'alphabetic';
+    // Leicht erhöhter Zeichenabstand für Druckschrift-Charakter
+    vx.letterSpacing = '0.04em';
+    vx.fillText(ln, 18, base);
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   ZEICHNEN – Apple Pencil / Touch / Maus
+══════════════════════════════════════════════════ */
+function getEvPos(e) {
+  const rect = drC.getBoundingClientRect();
+  let x, y, pressure = 0.5;
+  if (e.changedTouches && e.changedTouches.length) {
+    const t = e.changedTouches[0];
+    x = t.clientX - rect.left;
+    y = t.clientY - rect.top;
+    if (t.force > 0) pressure = t.force;
+  } else {
+    x = e.clientX - rect.left;
+    y = e.clientY - rect.top;
+    if (e.pressure > 0) pressure = e.pressure;
+  }
+  return { x, y, pressure: Math.max(0.1, Math.min(1, pressure)) };
+}
+
+function onDown(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  drawing = true;
+  const p = getEvPos(e);
+  lastX = p.x; lastY = p.y; lastPressure = p.pressure;
+  hasContent = true;
+  document.getElementById('hint').style.display = 'none';
+  if (e.pointerId != null) {
+    try { drC.setPointerCapture(e.pointerId); } catch(_) {}
+  }
+}
+
+function onMove(e) {
+  if (!drawing) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const p = getEvPos(e);
+
+  // In Offscreen-Canvas malen (bleibt erhalten!)
+  const prs = p.pressure;
+  const lw  = penSize * (0.55 + prs * 0.95);
+  offCtx.lineJoin     = 'round';
+  offCtx.lineCap      = 'round';
+  offCtx.strokeStyle  = `rgba(20,35,60,${0.48 + prs * 0.52})`;
+  offCtx.lineWidth    = lw;
+  offCtx.beginPath();
+  offCtx.moveTo(lastX, lastY);
+  offCtx.lineTo(p.x, p.y);
+  offCtx.stroke();
+
+  lastX = p.x; lastY = p.y; lastPressure = prs;
+
+  // drawCanvas neu rendern (nur offscreen projizieren, Linien bleiben im bgCanvas)
+  const W = wrap.clientWidth;
+  const H = parseInt(drC.style.height) || wrap.clientHeight;
+  drX.clearRect(0, 0, W, H);
+  drX.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, W, H);
+}
+
+function onUp(e) {
+  drawing = false;
+  if (e.pointerId != null) {
+    try { drC.releasePointerCapture(e.pointerId); } catch(_) {}
+  }
+}
+
+// Pointer Events (iPadOS ≥ 13.4 mit Pencil)
+drC.addEventListener('pointerdown',   onDown, { passive: false });
+drC.addEventListener('pointermove',   onMove, { passive: false });
+drC.addEventListener('pointerup',     onUp,   { passive: false });
+drC.addEventListener('pointercancel', onUp,   { passive: false });
+
+// Touch Events (Fallback + ältere iPadOS)
+drC.addEventListener('touchstart', onDown, { passive: false });
+drC.addEventListener('touchmove',  onMove, { passive: false });
+drC.addEventListener('touchend',   onUp,   { passive: false });
+
+// Maus (Desktop-Test)
+drC.addEventListener('mousedown', onDown, { passive: false });
+drC.addEventListener('mousemove', onMove, { passive: false });
+drC.addEventListener('mouseup',   onUp   );
+
+// Wrapper: Scroll blockieren beim Zeichnen
+wrap.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+/* ── Stiftstärke ── */
+function setPen(s) {
+  penSize = s;
+  document.querySelectorAll('.sz').forEach(b =>
+    b.classList.toggle('on', parseFloat(b.dataset.s) === s));
+}
+
+/* ── Löschen ── */
+function clearDraw() {
+  const W = wrap.clientWidth;
+  const H = parseInt(drC.style.height) || ROW_H * ROWS + PAD * 2;
+  offCtx.clearRect(0, 0, W + 4, H + 4);
+  drX.clearRect(0, 0, W, H);
+  hasContent = false;
+  document.getElementById('hint').style.display = 'flex';
+  document.getElementById('resultCard').style.display = 'none';
+}
+
+/* ══════════════════════════════════════════════════
+   SATZ LADEN / FORTSCHRITT
+══════════════════════════════════════════════════ */
+function loadSentence() {
+  clearDraw();
+  // Kurz warten bis Layout da, dann Vorgabe rendern
+  requestAnimationFrame(() => renderVorgabe(SAETZE[satzIdx % SAETZE.length]));
+  updateProgress();
+}
+
+function updateProgress() {
+  const pct = Math.min(doneCount / 10 * 100, 100);
+  document.getElementById('progFill').style.width  = pct + '%';
+  document.getElementById('progLabel').textContent = `${doneCount} / 10`;
+}
+
+function nextSentence() {
+  satzIdx++; doneCount++;
+  document.getElementById('resultCard').style.display = 'none';
+  loadSentence();
+}
+
+/* ══════════════════════════════════════════════════
+   KI-AUSWERTUNG
+══════════════════════════════════════════════════ */
+async function checkWriting() {
+  if (!hasContent) { alert('Bitte zuerst schreiben! ✏️'); return; }
+
+  const btn = document.getElementById('checkBtn');
+  btn.textContent = '🔍 Schrift wird gelesen…';
+  // Kleines Timeout damit Browser den Button-Text rendert
+  await new Promise(r => setTimeout(r, 30));
+  btn.disabled = true;
+
+  // Komposit-Bild: weißer BG + Linien + Handschrift
+  const W   = wrap.clientWidth;
+  const H   = parseInt(drC.style.height) || ROW_H * ROWS + PAD * 2;
+  const exp = document.createElement('canvas');
+  exp.width  = Math.round(W * dpr);
+  exp.height = Math.round(H * dpr);
+  const ex  = exp.getContext('2d');
+  ex.scale(dpr, dpr);
+  ex.fillStyle = '#fffef9';
+  ex.fillRect(0, 0, W, H);
+  drawLines(ex, W, H);
+  ex.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, W, H);
+
+  const b64  = exp.toDataURL('image/png').split(',')[1];
+  const satz = SAETZE[satzIdx % SAETZE.length];
+
+  let result;
+  try   { result = await analyzeWithClaude(satz, b64); }
+  catch { result = fallback(); }
+
+  showResult(result);
+  btn.textContent = '🔍 Überprüfen';
+  btn.disabled = false;
+}
+
+async function analyzeWithClaude(vorgabe, b64) {
+  // ── SCHRITT 1: Handschrift als Text abtippen (OCR) ──────────────────────
+  const ocrPrompt = `Bitte tippe den handgeschriebenen Text auf diesem Bild exakt ab – Buchstabe für Buchstabe, Groß- und Kleinschreibung beachten, Satzzeichen übernehmen.
+Antworte NUR mit dem abgetippten Text, ohne Erklärung oder Anführungszeichen.`;
+
+  const ocrRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64 } },
+          { type: 'text',  text: ocrPrompt }
+        ]
+      }]
+    })
+  });
+  const ocrData    = await ocrRes.json();
+  const geschrieben = (ocrData.content || []).map(i => i.text || '').join('').trim();
+  document.getElementById('checkBtn').textContent = '📝 Wird verglichen…';
+
+  // ── SCHRITT 2: Zeichengenauer Vergleich + Feedback ──────────────────────
+  const analysePrompt = `Du bist Grundschullehrerin im Saarland. Vergleiche den vom Schüler geschriebenen Satz zeichengenau mit der Vorlage.
+
+VORLAGE:   "${vorgabe}"
+GESCHRIEBEN: "${geschrieben}"
+
+Führe folgende Prüfungen durch:
+
+1. TRANSKRIPTION: Zeige dem Schüler, was du gelesen hast:
+   → Notiere den abgelesenen Satz als Feedback-Punkt (typ: "ok"), z.B. „Ich habe gelesen: »${geschrieben}«"
+
+2. WORT-FÜR-WORT-VERGLEICH: Vergleiche beide Sätze Wort für Wort:
+   - Fehlende Wörter → typ: "error", konkret benennen
+   - Zusätzliche Wörter → typ: "error", konkret benennen
+   - Falsch geschriebene Wörter → typ: "error", z.B. „'Hund' wurde als 'Hunt' geschrieben"
+   - Korrekte Wörter → zusammenfassend als typ: "ok"
+
+3. GROSS-/KLEINSCHREIBUNG (Wort für Wort prüfen):
+   - Satzanfang: muss Großbuchstabe sein
+   - Substantive/Nomen: müssen Großbuchstaben haben
+   - Alle anderen Wörter: müssen Kleinbuchstaben haben
+   - Jeden Fehler als typ: "error" melden, z.B. „'katze' muss großgeschrieben werden (Substantiv)"
+   - Wenn alles korrekt: typ: "ok"
+
+4. SATZZEICHEN:
+   - Punkt am Satzende vorhanden? Wenn nicht: typ: "error"
+   - Falsche oder überflüssige Zeichen? Wenn ja: typ: "error"
+   - Wenn korrekt: typ: "ok"
+
+5. SCHRIFT (aus dem Bild beurteilen):
+   - Unleserliche Buchstaben → typ: "warn"
+   - Buchstabenhöhe / Linienführung → typ: "warn" wenn auffällig
+   - Wenn gut lesbar: typ: "ok"
+
+Berechne den Score (0–100): Beginne bei 100, ziehe ab: je Rechtschreibfehler −15, je Groß-/Kleinschreibungsfehler −10, fehlender Punkt −5, fehlendes Wort −15, unleserlicher Buchstabe −5.
+
+Antworte NUR mit gültigem JSON (kein Markdown, keine Backticks):
+{"score":75,"emoji":"👍","titel":"Gut geschrieben!","untertitel":"Du machst das super – weiter so!","punkte":[{"typ":"ok","text":"Beispiel"},{"typ":"error","text":"Beispiel"}]}`;
+
+  const res  = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1200,
+      messages: [{
+        role: 'user',
+        content: [{ type: 'text', text: analysePrompt }]
+      }]
+    })
+  });
+
+  const data  = await res.json();
+  const raw   = (data.content || []).map(i => i.text || '').join('');
+  const clean = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function fallback() {
+  return {
+    score: 0, emoji: '⚠️',
+    titel: 'Schrifterkennung nicht verfügbar',
+    untertitel: 'Deine Schrift konnte leider nicht automatisch ausgewertet werden.',
+    punkte: [
+      { typ: 'error', text: 'Die Schrifterkennung konnte keine Verbindung zum Server herstellen. Bitte prüfe deine Internetverbindung und stelle sicher, dass ein gültiger API-Schlüssel hinterlegt ist.' },
+      { typ: 'warn',  text: 'Bitte zeige deinen geschriebenen Satz einer Lehrerin oder einem Erwachsenen, damit sie ihn überprüfen können.' },
+      { typ: 'ok',    text: 'Du kannst trotzdem weiterüben – Übung macht den Meister!' },
+    ]
+  };
+}
+
+function showResult(r) {
+  const card  = document.getElementById('resultCard');
+  const badge = document.getElementById('scoreBadge');
+  const title = document.getElementById('scoreTitle');
+  const sub   = document.getElementById('scoreSub');
+  const list  = document.getElementById('fbList');
+
+  badge.textContent = r.emoji || '👍';
+  badge.className   = 'score-badge ' + (r.score >= 80 ? 's-great' : r.score >= 55 ? 's-ok' : 's-low');
+  title.textContent = r.titel;
+  sub.textContent   = r.untertitel;
+
+  list.innerHTML = '';
+  (r.punkte || []).forEach(p => {
+    const li  = document.createElement('li');
+    const cls = p.typ === 'ok' ? 'fb-ok' : p.typ === 'warn' ? 'fb-warn' : 'fb-err';
+    const ico = p.typ === 'ok' ? '✅' : p.typ === 'warn' ? '⚠️' : '❌';
+    li.className = 'fb-item ' + cls;
+    li.innerHTML = `<span class="fb-ico">${ico}</span><span>${p.text}</span>`;
+    list.appendChild(li);
+  });
+
+  card.style.display = 'block';
+  setTimeout(() => card.scrollIntoView({ behavior:'smooth', block:'nearest' }), 60);
+}
+
+/* ── Init ── */
+window.addEventListener('resize', () => {
+  initCanvases();
+  requestAnimationFrame(() => renderVorgabe(SAETZE[satzIdx % SAETZE.length]));
+});
+
+initCanvases();
+loadSentence();
+</script>
+</body>
+</html>
