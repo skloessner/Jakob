@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lese-Abenteuer</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #e0f4ff;
+    --sun: #ffe566;
+    --green: #5ecb7a;
+    --green-dark: #38a158;
+    --blue: #3a9eea;
+    --blue-dark: #1e6dbf;
+    --orange: #ff8c42;
+    --orange-dark: #d96218;
+    --pink: #f97bbb;
+    --red: #f94f4f;
+    --red-dark: #c72e2e;
+    --card: #ffffff;
+    --shadow: 0 4px 20px rgba(58,120,200,0.13);
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--sky);
+    min-height: 100vh;
+    padding: 16px 16px 40px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Decorative background bubbles */
+  body::before, body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
+  }
+  body::before {
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, #b8e8ff 0%, transparent 70%);
+    top: -80px; right: -80px;
+  }
+  body::after {
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, #d4f5d4 0%, transparent 70%);
+    bottom: 0; left: -60px;
+  }
+
+  .app {
+    max-width: 680px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 10px 0 20px;
+  }
+  .header-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: 2.4rem;
+    color: var(--blue-dark);
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .header-title span { color: var(--orange); }
+  .header-sub {
+    font-size: 1rem;
+    color: #5a7fa0;
+    margin-top: 5px;
+    font-weight: 600;
+  }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  /* Start screen */
+  .random-btn {
+    display: block;
+    width: 100%;
+    background: linear-gradient(135deg, var(--orange) 0%, #ffb347 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 18px;
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.35rem;
+    cursor: pointer;
+    box-shadow: 0 5px 0 var(--orange-dark);
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin-bottom: 22px;
+    letter-spacing: 0.2px;
+  }
+  .random-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 var(--orange-dark);
+  }
+  .random-btn .btn-icon { font-size: 1.4rem; margin-right: 8px; }
+
+  .section-label {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.05rem;
+    color: #5a7fa0;
+    margin-bottom: 12px;
+    padding-left: 2px;
+  }
+
+  .text-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 10px;
+  }
+
+  .text-card {
+    background: white;
+    border: 2.5px solid #ddeeff;
+    border-radius: 14px;
+    padding: 14px 14px 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 8px rgba(58,120,200,0.07);
+  }
+  .text-card:hover {
+    border-color: var(--blue);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(58,120,200,0.15);
+  }
+  .text-card .card-emoji { font-size: 1.6rem; display: block; margin-bottom: 6px; }
+  .text-card .card-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: 0.95rem;
+    color: #1a3a6a;
+    display: block;
+    line-height: 1.2;
+  }
+  .text-card .card-topic {
+    font-size: 0.74rem;
+    color: #7a9cc0;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-top: 4px;
+  }
+
+  /* Reading screen */
+  .reading-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .reading-emoji { font-size: 2rem; }
+  .reading-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.45rem;
+    color: #1a3a6a;
+  }
+
+  .reading-text {
+    font-size: 1.08rem;
+    line-height: 1.75;
+    color: #2b3a4a;
+    background: #f8fdff;
+    border-left: 4px solid var(--blue);
+    border-radius: 0 12px 12px 0;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    white-space: pre-line;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .btn-back {
+    background: #eaf2ff;
+    color: #3a6ea0;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-back:hover { background: #d0e5ff; }
+  .btn-go {
+    background: linear-gradient(135deg, var(--green) 0%, #45c56a 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 22px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 0 var(--green-dark);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-go:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 var(--green-dark);
+  }
+
+  /* Question screen */
+  .progress-bar-wrap {
+    background: #e0eeff;
+    border-radius: 99px;
+    height: 10px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), #6ec8ff);
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    font-size: 0.82rem;
+    color: #6a90b0;
+    font-weight: 700;
+    margin-bottom: 16px;
+    text-align: right;
+  }
+
+  .question-text {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.2rem;
+    color: #1a3a6a;
+    margin-bottom: 16px;
+    line-height: 1.3;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-bottom: 16px;
+  }
+  .option {
+    background: #f5f9ff;
+    border: 2.5px solid #dde8f5;
+    border-radius: 12px;
+    padding: 13px 16px;
+    text-align: left;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2b3a5a;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .option .opt-letter {
+    background: #dde8f5;
+    color: #4a6a9a;
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .option:hover:not(.disabled) {
+    border-color: var(--blue);
+    background: #eaf4ff;
+  }
+  .option:hover:not(.disabled) .opt-letter {
+    background: var(--blue);
+    color: white;
+  }
+  .option.correct {
+    border-color: var(--green);
+    background: #edfff4;
+    color: #1a5c32;
+    font-weight: 700;
+  }
+  .option.correct .opt-letter { background: var(--green); color: white; }
+  .option.wrong {
+    border-color: var(--red);
+    background: #fff0f0;
+    color: #7f1d1d;
+  }
+  .option.wrong .opt-letter { background: var(--red); color: white; }
+  .option.disabled { cursor: default; }
+
+  .feedback {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 12px;
+    display: none;
+  }
+  .feedback.right {
+    background: #edfff4;
+    color: #1a5c32;
+    border: 2px solid #86efac;
+    display: block;
+  }
+  .feedback.wrong {
+    background: #fff0f0;
+    color: #7f1d1d;
+    border: 2px solid #fca5a5;
+    display: block;
+  }
+
+  .q-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .btn-reread {
+    background: none;
+    border: 2px solid #c8daf0;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #4a6a9a;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-reread:hover { background: #e8f2ff; }
+  .btn-next {
+    background: linear-gradient(135deg, var(--blue) 0%, #5bb8ff 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 0 var(--blue-dark);
+    display: none;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-next:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 var(--blue-dark);
+  }
+
+  /* Result screen */
+  .result-card {
+    text-align: center;
+    padding: 10px 10px 20px;
+  }
+  .result-big-emoji {
+    font-size: 5rem;
+    display: block;
+    margin-bottom: 6px;
+    animation: bounce 0.6s ease;
+  }
+  @keyframes bounce {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .result-stars {
+    font-size: 2.6rem;
+    letter-spacing: 6px;
+    margin: 8px 0 12px;
+    display: block;
+  }
+  .star-on { color: var(--sun); text-shadow: 0 0 8px rgba(255,200,0,0.4); }
+  .star-off { color: #d8e8f5; }
+  .result-score {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.6rem;
+    color: #1a3a6a;
+    margin-bottom: 8px;
+  }
+  .result-msg {
+    font-size: 1rem;
+    color: #5a7fa0;
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+  .result-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-home {
+    background: #eaf2ff;
+    color: #3a6ea0;
+    border: none;
+    border-radius: 12px;
+    padding: 13px 22px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-home:hover { background: #d0e5ff; }
+  .btn-next-text {
+    background: linear-gradient(135deg, var(--orange) 0%, #ffb347 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 13px 22px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 0 var(--orange-dark);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-next-text:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 var(--orange-dark);
+  }
+
+  @media (max-width: 480px) {
+    .header-title { font-size: 1.9rem; }
+    .text-grid { grid-template-columns: 1fr 1fr; }
+    .reading-text { font-size: 1rem; padding: 14px 16px; }
+    .card { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-title">Lese<span>Abenteuer</span> ✨</div>
+    <div class="header-sub">Lies den Text und beantworte die Fragen!</div>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="screen-start" class="screen active">
+    <button class="random-btn" onclick="startRandom()">
+      <span class="btn-icon">🎲</span> Zufälligen Text starten
+    </button>
+    <div class="section-label">📚 Oder wähle einen Text:</div>
+    <div class="text-grid" id="textList"></div>
+  </div>
+
+  <!-- Reading Screen -->
+  <div id="screen-reading" class="screen">
+    <div class="card">
+      <div class="reading-header">
+        <span class="reading-emoji" id="readingEmoji"></span>
+        <div class="reading-title" id="readingTitle"></div>
+      </div>
+      <div class="reading-text" id="readingContent"></div>
+      <div class="btn-row">
+        <button class="btn-back" onclick="goHome()">← Zurück</button>
+        <button class="btn-go" onclick="startQuestions()">Fragen beantworten →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Question Screen -->
+  <div id="screen-question" class="screen">
+    <div class="card">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-label" id="progressLabel"></div>
+      <div class="question-text" id="questionText"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback" id="feedback"></div>
+      <div class="q-actions">
+        <button class="btn-reread" onclick="rereadText()">📖 Nochmal lesen</button>
+        <button class="btn-next" id="nextBtn" onclick="nextQuestion()">Weiter →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="screen-result" class="screen">
+    <div class="card">
+      <div class="result-card">
+        <span class="result-big-emoji" id="resultEmoji"></span>
+        <span class="result-stars" id="resultStars"></span>
+        <div class="result-score" id="resultScore"></div>
+        <div class="result-msg" id="resultMsg"></div>
+        <div class="result-actions">
+          <button class="btn-home" onclick="goHome()">🏠 Zur Übersicht</button>
+          <button class="btn-next-text" onclick="startRandom()">🎲 Nächster Text</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEXTS = [
+  {
+    title: "Die schlaue Krähe",
+    topic: "Tiere",
+    emoji: "🐦‍⬛",
+    text: `Krähen sind sehr kluge Vögel. Sie können Werkzeuge benutzen und sich Gesichter merken. Manche Krähen biegen kleine Stöcke, um Insekten aus engen Löchern zu holen.
+
+Krähen leben fast überall auf der Welt. In Städten findet man sie oft, weil es dort viele Essensreste gibt. Wenn ein Mensch eine Krähe ärgert, erkennt sie ihn noch Jahre später wieder.
+
+Krähen leben in großen Gruppen. Abends fliegen sie zusammen zu ihren Schlafplätzen. Sie kommunizieren mit verschiedenen Rufen — zum Beispiel Warnrufe oder Rufe, die bedeuten: „Hier ist Futter!"`,
+    questions: [
+      {
+        q: "Was machen manche Krähen, um an Insekten zu kommen?",
+        options: ["Sie warten geduldig", "Sie biegen kleine Stöcke als Werkzeug", "Sie graben mit dem Schnabel", "Sie bitten andere Tiere um Hilfe"],
+        correct: 1
+      },
+      {
+        q: "Warum findet man Krähen oft in Städten?",
+        options: ["Weil es dort wärmer ist", "Weil sie gerne Autos mögen", "Weil es dort viele Essensreste gibt", "Weil sie dort sicherer sind"],
+        correct: 2
+      },
+      {
+        q: "Was machen Krähen abends?",
+        options: ["Sie schlafen sofort ein", "Sie fliegen zusammen zu Schlafplätzen", "Sie suchen alleine Futter", "Sie verstecken sich in Löchern"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Der Regenwald",
+    topic: "Natur",
+    emoji: "🌿",
+    text: `Im Regenwald ist es das ganze Jahr über warm und feucht. Es regnet sehr oft. Deshalb wachsen dort riesige Bäume und bunte Pflanzen. Millionen von Tieren leben hier.
+
+Der Regenwald ist in Stockwerke aufgeteilt. Ganz unten ist es dunkel, weil die hohen Bäume das Licht abhalten. Weiter oben ist das Kronendach — das ist wie ein grünes Dach aus Baumspitzen. Hier leben die meisten Tiere.
+
+Der größte Regenwald der Welt ist der Amazonas-Regenwald. Er wird manchmal „grüne Lunge der Erde" genannt, weil seine Bäume sehr viel Sauerstoff erzeugen. Leider werden jeden Tag viele Bäume abgeholzt.`,
+    questions: [
+      {
+        q: "Warum ist es am Boden des Regenwaldes dunkel?",
+        options: ["Weil es dort immer regnet", "Weil die hohen Bäume das Licht abhalten", "Weil es dort keine Pflanzen gibt", "Weil die Sonne selten scheint"],
+        correct: 1
+      },
+      {
+        q: "Wie wird der Amazonas-Regenwald manchmal genannt?",
+        options: ["Grünes Herz der Erde", "Grüner Garten der Welt", "Grüne Lunge der Erde", "Grüner Schatz der Natur"],
+        correct: 2
+      },
+      {
+        q: "Wo leben im Regenwald die meisten Tiere?",
+        options: ["Am Boden", "Im Wasser", "Im Kronendach", "Unter der Erde"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Mias Schatzkarte",
+    topic: "Abenteuer",
+    emoji: "🗺️",
+    text: `Eines Morgens fand Mia auf dem Dachboden ihrer Großeltern eine alte Holzkiste. Darin lag ein vergilbtes Stück Papier — eine Schatzkarte!
+
+Auf der Karte waren ein Baum, ein Bach und ein Stein mit einem roten Kreuz. Mia holte ihren Freund Leo. Zusammen liefen sie in den Garten. Hinter einem Busch fanden sie tatsächlich einen Stein mit einem alten roten Kreuz. Sie gruben — und zogen eine kleine Blechdose heraus.
+
+In der Dose lagen alte Fotos, Münzen und ein Brief: „Ich bin Karl, war zehn Jahre alt und vergrabe heute meine Erinnerungen — 1958." Mias Opa staunte: „Karl war mein bester Freund!"`,
+    questions: [
+      {
+        q: "Wo fand Mia die Schatzkarte?",
+        options: ["Im Keller", "Auf dem Dachboden", "Im Garten", "In der Schule"],
+        correct: 1
+      },
+      {
+        q: "Was war in der Blechdose?",
+        options: ["Gold und Edelsteine", "Spielzeug und Süßigkeiten", "Alte Fotos, Münzen und ein Brief", "Eine weitere Schatzkarte"],
+        correct: 2
+      },
+      {
+        q: "Wer hatte den Schatz vergraben?",
+        options: ["Mias Opa selbst", "Ein unbekannter Pirat", "Karl, Mias Opas Freund", "Eine ältere Schwester"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Vulkane",
+    topic: "Wissen",
+    emoji: "🌋",
+    text: `Tief unter der Erde gibt es geschmolzenes Gestein, das man Magma nennt. Manchmal sucht es sich einen Weg nach oben — dann bricht ein Vulkan aus. Das Magma heißt dann Lava. Sie kann über 1000 Grad heiß sein.
+
+Manche Vulkane brechen ruhig aus, andere explodieren mit einem lauten Knall und schleudern Asche in den Himmel. Weltweit gibt es etwa 1500 aktive Vulkane. Viele davon liegen rund um den Pazifischen Ozean — diesen Bereich nennt man „Feuerring".
+
+Vulkane sind nicht nur gefährlich. Die Asche macht den Boden in der Nähe sehr fruchtbar. Auch schöne Inseln wie Hawaii sind aus Vulkanen entstanden.`,
+    questions: [
+      {
+        q: "Wie heißt das geschmolzene Gestein unter der Erde?",
+        options: ["Lava", "Magma", "Asche", "Granit"],
+        correct: 1
+      },
+      {
+        q: "Wie nennt man die Region um den Pazifischen Ozean, wo viele Vulkane liegen?",
+        options: ["Magmazone", "Lavagürtel", "Feuerring", "Glutkreis"],
+        correct: 2
+      },
+      {
+        q: "Was ist ein Vorteil von Vulkanen?",
+        options: ["Sie kühlen die Erde ab", "Ihre Asche macht den Boden fruchtbar", "Sie erzeugen sauberes Wasser", "Sie schützen vor Stürmen"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Delfine",
+    topic: "Tiere",
+    emoji: "🐬",
+    text: `Delfine sehen wie Fische aus, sind aber keine Fische — sie sind Säugetiere. Das bedeutet: Sie müssen regelmäßig auftauchen, um Luft zu atmen.
+
+Delfine sind sehr klug und neugierig. Sie leben in Gruppen, die man Schulen nennt. Jeder Delfin hat seinen eigenen Pfeifton — fast wie einen Namen. Beim Jagen helfen sie sich gegenseitig.
+
+Delfine sind bekannt dafür, dass sie freundlich zu Menschen sind. Es gibt Geschichten, wo Delfine schwimmende Menschen vor Haien gerettet haben. Leider sind viele Delfine durch Plastikmüll im Meer in Gefahr.`,
+    questions: [
+      {
+        q: "Warum sind Delfine keine Fische?",
+        options: ["Weil sie zu groß sind", "Weil sie Säugetiere sind und Luft atmen", "Weil sie keine Schuppen haben", "Weil sie sehr klug sind"],
+        correct: 1
+      },
+      {
+        q: "Was hat jeder Delfin, das wie ein Name funktioniert?",
+        options: ["Eine besondere Farbe", "Seinen eigenen Pfeifton", "Einen bestimmten Sprung", "Ein Muster auf der Haut"],
+        correct: 1
+      },
+      {
+        q: "Was bedroht viele Delfine heute?",
+        options: ["Zu viele Fische im Meer", "Plastikmüll im Meer", "Zu warmes Wasser", "Andere Delfine"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Die Wikinger",
+    topic: "Geschichte",
+    emoji: "⚔️",
+    text: `Vor mehr als 1000 Jahren lebten in Nordeuropa die Wikinger. Ihre Heimat war das, was wir heute Norwegen, Schweden und Dänemark nennen. Sie waren mutige Seefahrer und geschickte Handwerker.
+
+Berühmt sind die Wikinger für ihre Drachenschiffe — lange, schmale Holzboote mit einem geschnitzten Drachenkopf vorne. Mit diesen Schiffen segelten sie sogar bis nach Amerika, etwa 500 Jahre vor Kolumbus.
+
+Im Alltag waren die meisten Wikinger Bauern. Sie hatten ihre eigene Schrift — die Runen. Runen wurden in Holz oder Stein geritzt, um Geschichten zu erzählen.`,
+    questions: [
+      {
+        q: "Wie nannte man die Schiffe der Wikinger?",
+        options: ["Segelschiffe", "Drachenschiffe", "Sturmboote", "Kriegsschiffe"],
+        correct: 1
+      },
+      {
+        q: "Wie hieß die Schrift der Wikinger?",
+        options: ["Hieroglyphen", "Runen", "Buchstaben", "Zeichen"],
+        correct: 1
+      },
+      {
+        q: "Wie weit segelten die Wikinger?",
+        options: ["Nur bis England", "Bis nach Asien", "Bis nach Amerika", "Nur im Mittelmeer"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Die Sonne",
+    topic: "Wissen",
+    emoji: "☀️",
+    text: `Die Sonne ist ein riesiger Stern. Sie wirkt so groß, weil sie viel näher an uns ist als alle anderen Sterne. An ihrer Oberfläche ist es etwa 5500 Grad heiß.
+
+Ohne die Sonne gäbe es kein Leben auf der Erde. Pflanzen brauchen Sonnenlicht zum Wachsen. Und die Sonne sorgt dafür, dass es auf der Erde warm genug ist. Auch alle acht Planeten in unserem Sonnensystem kreisen um die Sonne. Die Erde ist der dritte davon.
+
+Obwohl die Sonne so wichtig ist, darf man nie direkt in sie schauen — ihr Licht kann die Augen verletzen. Sonnencreme schützt uns vor ihrer Strahlung.`,
+    questions: [
+      {
+        q: "Was ist die Sonne?",
+        options: ["Ein Planet", "Ein Mond", "Ein Stern", "Eine Galaxie"],
+        correct: 2
+      },
+      {
+        q: "Welcher Planet von der Sonne ist die Erde?",
+        options: ["Der zweite", "Der dritte", "Der vierte", "Der erste"],
+        correct: 1
+      },
+      {
+        q: "Warum soll man nicht in die Sonne schauen?",
+        options: ["Weil es höflicher ist", "Weil es Kopfweh macht", "Weil das Licht die Augen verletzen kann", "Weil man dann schlechter schläft"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Die fleißigen Bienen",
+    topic: "Tiere",
+    emoji: "🐝",
+    text: `Bienen sind kleine Insekten mit einer großen Aufgabe. Wenn sie von Blüte zu Blüte fliegen, tragen sie Blütenstaub mit sich. So bestäuben sie die Pflanzen — ohne Bienen gäbe es viel weniger Obst und Gemüse.
+
+In einem Bienenstock leben tausende Bienen zusammen. Die Bienenkönigin legt täglich bis zu 2000 Eier. Die Arbeiterinnen sammeln Nektar, bauen Waben und pflegen die Larven. Wenn eine Biene Futter findet, „erzählt" sie es den anderen mit einem besonderen Tanz.
+
+Aus dem Nektar machen die Bienen Honig — ihr Wintervorrat. Leider haben Bienen heute durch Pestizide und weniger Blumenwiesen ein schweres Leben.`,
+    questions: [
+      {
+        q: "Was nennt man es, wenn Bienen Blütenstaub von Blüte zu Blüte tragen?",
+        options: ["Bestäubung", "Befruchtung", "Bestäuberei", "Blütenpflege"],
+        correct: 0
+      },
+      {
+        q: "Wie teilen Bienen anderen Bienen mit, wo Futter ist?",
+        options: ["Mit einem Ruf", "Mit einem besonderen Tanz", "Sie fliegen voraus", "Mit einem Geruch"],
+        correct: 1
+      },
+      {
+        q: "Wozu dient der Honig im Bienenstock?",
+        options: ["Zum Verkaufen", "Als Wintervorrat", "Zum Bauen der Waben", "Als Medizin"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Die geheimnisvolle Höhle",
+    topic: "Abenteuer",
+    emoji: "🕯️",
+    text: `Tom und seine Schwester Lina entdeckten auf einer Wanderung hinter Sträuchern eine Öffnung im Felsen — eine Höhle! Zum Glück hatte Lina eine Stirnlampe dabei.
+
+Drinnen war es kühl und still. An der Decke hingen lange spitze Tropfsteine. „Die brauchen tausende Jahre zum Wachsen", erklärte der Vater flüsternd. Niemand wagte, sie zu berühren.
+
+Dann hörten sie Plätschern. Sie fanden einen kleinen unterirdischen Bach mit eiskaltem, klarem Wasser. Auf einem Stein entdeckte Tom eine Pfotenspur. „Wahrscheinlich ein Fuchs", sagte der Vater. Als sie wieder draußen standen, wirkten die Farben plötzlich viel bunter als vorher.`,
+    questions: [
+      {
+        q: "Womit leuchteten sie in der Höhle?",
+        options: ["Mit einer Kerze", "Mit Linas Stirnlampe", "Mit dem Handy", "Mit einer Fackel"],
+        correct: 1
+      },
+      {
+        q: "Was hing von der Decke der Höhle?",
+        options: ["Fledermäuse", "Eiszapfen", "Tropfsteine", "Wurzeln"],
+        correct: 2
+      },
+      {
+        q: "Was entdeckte Tom auf einem Stein am Bach?",
+        options: ["Eine Münze", "Eine Pfotenspur", "Ein Stück Stoff", "Einen Knochen"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Der Mond",
+    topic: "Wissen",
+    emoji: "🌕",
+    text: `Der Mond ist der nächste Nachbar der Erde im Weltall. Er dreht sich etwa alle 27 Tage einmal um die Erde. Manchmal sehen wir ihn als runde Scheibe — das ist Vollmond. Manchmal sieht man nur eine schmale Sichel. Diese Veränderungen nennt man Mondphasen.
+
+Auf dem Mond gibt es viele Krater. Sie entstehen, wenn Steine aus dem Weltall einschlagen. Da es auf dem Mond keinen Wind und keinen Regen gibt, bleiben die Krater sehr lange erhalten.
+
+1969 betrat der Astronaut Neil Armstrong als erster Mensch den Mond. Er sagte: „Ein kleiner Schritt für einen Menschen, ein großer Sprung für die Menschheit."`,
+    questions: [
+      {
+        q: "Wie lange braucht der Mond ungefähr für eine Runde um die Erde?",
+        options: ["7 Tage", "27 Tage", "365 Tage", "1 Tag"],
+        correct: 1
+      },
+      {
+        q: "Warum bleiben Krater auf dem Mond so lange erhalten?",
+        options: ["Weil sie sehr groß sind", "Weil der Mond sehr alt ist", "Weil es dort keinen Wind und keinen Regen gibt", "Weil sie aus Metall sind"],
+        correct: 2
+      },
+      {
+        q: "Wer betrat 1969 als erster Mensch den Mond?",
+        options: ["Juri Gagarin", "Buzz Aldrin", "Neil Armstrong", "Alexander Gerst"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Pinguine",
+    topic: "Tiere",
+    emoji: "🐧",
+    text: `Pinguine sind Vögel — aber sie können nicht fliegen. Dafür sind sie fantastische Schwimmer. Ihre kurzen Flügel funktionieren wie Ruder im Wasser.
+
+Die meisten Pinguine leben in der Antarktis, dem kältesten Ort der Welt. Eine dicke Speckschicht und wasserabweisende Federn schützen sie vor der Kälte. Der größte Pinguin ist der Kaiserpinguin, der bis zu 1,20 Meter groß werden kann.
+
+Beim Kaiserpinguin trägt das Männchen das Ei auf den Füßen und wärmt es den ganzen Winter lang — ohne zu fressen. Wenn das Weibchen mit Futter zurückkommt, übernimmt es die Pflege des Kükens.`,
+    questions: [
+      {
+        q: "Warum können Pinguine nicht fliegen?",
+        options: ["Weil sie zu schwer sind", "Weil ihre Flügel kurz sind und wie Ruder funktionieren", "Weil sie Angst vor der Höhe haben", "Weil es zu kalt ist"],
+        correct: 1
+      },
+      {
+        q: "Wer wärmt beim Kaiserpinguin das Ei?",
+        options: ["Das Weibchen", "Beide zusammen", "Das Männchen", "Die ganze Gruppe"],
+        correct: 2
+      },
+      {
+        q: "Was schützt Pinguine vor der Kälte?",
+        options: ["Ihr dickes Fell", "Eine Speckschicht und Federn", "Ihr großer Schnabel", "Ihr starker Schwanz"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Vom Korn zum Brot",
+    topic: "Wissen",
+    emoji: "🍞",
+    text: `Brot beginnt auf dem Acker. Der Bauer sät Getreidekörner in die Erde. Im Sommer werden die Halme gelb — das Getreide ist reif. Ein großer Mähdrescher fährt aufs Feld, schneidet die Halme und trennt die Körner vom Stroh.
+
+Die Körner kommen in eine Mühle, wo sie zu Mehl gemahlen werden. Der Bäcker mischt das Mehl mit Wasser, Salz und Hefe. Der Teig muss eine Weile ruhen, damit er aufgeht. Dann wird er geformt und im heißen Ofen gebacken.
+
+Viele Bäcker fangen mitten in der Nacht an — damit morgens frisches Brot im Laden liegt.`,
+    questions: [
+      {
+        q: "Welche Maschine erntet das Getreide?",
+        options: ["Der Traktor", "Der Mähdrescher", "Der Pflug", "Die Sämaschine"],
+        correct: 1
+      },
+      {
+        q: "Was passiert mit den Körnern in der Mühle?",
+        options: ["Sie werden gewaschen", "Sie werden gekocht", "Sie werden zu Mehl gemahlen", "Sie werden getrocknet"],
+        correct: 2
+      },
+      {
+        q: "Warum muss der Teig ruhen?",
+        options: ["Damit er kalt wird", "Damit er aufgeht und locker wird", "Damit er Farbe bekommt", "Damit das Wasser verdunstet"],
+        correct: 1
+      }
+    ]
+  },
+  {
+    title: "Ameisen",
+    topic: "Tiere",
+    emoji: "🐜",
+    text: `Ameisen sind winzig, aber unglaublich stark. Eine Ameise kann das 50-fache ihres eigenen Gewichts tragen. In einer Ameisenkolonie leben manchmal Millionen Tiere zusammen.
+
+Die Königin legt täglich tausende Eier. Die Arbeiterinnen sammeln Futter, bauen das Nest und pflegen die Larven. Wenn eine Ameise Futter findet, hinterlässt sie auf dem Rückweg einen Duftpfad. Andere Ameisen folgen dem Duft — deshalb sieht man oft lange Ameisenketten.
+
+Im Wald sind Ameisen sehr nützlich. Sie räumen tote Insekten weg und lockern den Boden auf. Deshalb stehen manche Ameisenarten in Deutschland sogar unter Schutz.`,
+    questions: [
+      {
+        q: "Wie viel kann eine Ameise im Vergleich zu sich selbst tragen?",
+        options: ["Das Doppelte", "Das 10-fache", "Das 50-fache", "Genauso viel wie sie selbst"],
+        correct: 2
+      },
+      {
+        q: "Wie finden andere Ameisen den Weg zum Futter?",
+        options: ["Sie schauen, wo die Sonne steht", "Sie folgen einem Duftpfad", "Sie folgen der Königin", "Sie merken sich den Weg selbst"],
+        correct: 1
+      },
+      {
+        q: "Warum sind Ameisen im Wald nützlich?",
+        options: ["Sie bauen Vogelnester", "Sie bringen Regen", "Sie räumen tote Insekten weg und lockern den Boden", "Sie pflanzen Bäume"],
+        correct: 2
+      }
+    ]
+  },
+  {
+    title: "Tag im Zoo",
+    topic: "Abenteuer",
+    emoji: "🦁",
+    text: `Pauls Klasse fuhr in den Zoo. Zuerst sahen sie die Erdmännchen. Die kleinen Tiere standen aufrecht und schauten neugierig herum. „Sie passen auf Feinde auf", erklärte die Tierpflegerin. „Wenn einer pfiff, verschwinden alle sofort in ihrem Bau."
+
+Beim Mittagessen auf der Wiese kam eine Krähe angeflogen und schnappte sich Käse von Mias Brot. Alle lachten. Danach besuchten sie die Pinguine. Beim Füttern schossen die Tiere wie Pfeile durchs Wasser.
+
+Am Ende durften alle ein Lieblingstier für einen Schulaufsatz wählen. Paul wählte die Erdmännchen: „Die halten immer zusammen."`,
+    questions: [
+      {
+        q: "Warum stehen Erdmännchen oft aufrecht?",
+        options: ["Weil sie schlafen", "Weil sie tanzen", "Weil sie nach Feinden Ausschau halten", "Weil sie fressen"],
+        correct: 2
+      },
+      {
+        q: "Was passierte beim Mittagessen?",
+        options: ["Es fing an zu regnen", "Ein Affe entkam", "Eine Krähe stahl Käse", "Pauls Rucksack fiel ins Wasser"],
+        correct: 2
+      },
+      {
+        q: "Welches Tier wählte Paul für seinen Aufsatz?",
+        options: ["Die Pinguine", "Den Affen", "Die Krähe", "Die Erdmännchen"],
+        correct: 3
+      }
+    ]
+  },
+  {
+    title: "Die alten Ägypter",
+    topic: "Geschichte",
+    emoji: "🏺",
+    text: `Vor über 4000 Jahren lebten am Fluss Nil die alten Ägypter. Jedes Jahr trat der Nil über die Ufer und ließ fruchtbaren Schlamm zurück. Darin wuchs Getreide besonders gut.
+
+Die Ägypter bauten riesige Pyramiden als Gräber für ihre Könige, die Pharaonen. Die größte Pyramide steht in Gizeh und ist fast 150 Meter hoch. Verstorbene Pharaonen wurden als Mumien begraben — mit Schmuck und Gegenständen für das Leben danach.
+
+Die Ägypter hatten eine Bilderschrift namens Hieroglyphen. Jedes Bild stand für einen Laut oder ein Wort. Forscher können Hieroglyphen heute wieder lesen.`,
+    questions: [
+      {
+        q: "Warum war der Nil für die Ägypter so wichtig?",
+        options: ["Zum Schwimmen und Baden", "Er ließ fruchtbaren Schlamm für Pflanzen zurück", "Er schützte vor Feinden", "Er war heilig für alle Götter"],
+        correct: 1
+      },
+      {
+        q: "Wie nannte man die Könige der alten Ägypter?",
+        options: ["Kaiser", "Pharaonen", "Sultane", "Cäsaren"],
+        correct: 1
+      },
+      {
+        q: "Was sind Hieroglyphen?",
+        options: ["Ein ägyptischer Tanz", "Eine Sportart", "Eine Bilderschrift", "Ein Göttergesang"],
+        correct: 2
+      }
+    ]
+  }
+];
+
+const LETTERS = ['A', 'B', 'C', 'D'];
+let state = { currentText: null, qIndex: 0, score: 0, answered: false };
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function buildTextList() {
+  const list = document.getElementById('textList');
+  list.innerHTML = '';
+  TEXTS.forEach((t, i) => {
+    const card = document.createElement('button');
+    card.className = 'text-card';
+    card.innerHTML = `<span class="card-emoji">${t.emoji}</span><span class="card-title">${t.title}</span><span class="card-topic">${t.topic}</span>`;
+    card.onclick = () => openText(i);
+    list.appendChild(card);
+  });
+}
+
+function openText(index) {
+  state.currentText = index;
+  state.qIndex = 0;
+  state.score = 0;
+  state.answered = false;
+  const t = TEXTS[index];
+  document.getElementById('readingEmoji').textContent = t.emoji;
+  document.getElementById('readingTitle').textContent = t.title;
+  document.getElementById('readingContent').textContent = t.text;
+  showScreen('screen-reading');
+}
+
+function startRandom() {
+  openText(Math.floor(Math.random() * TEXTS.length));
+}
+
+function startQuestions() {
+  state.qIndex = 0;
+  state.score = 0;
+  showQuestion();
+  showScreen('screen-question');
+}
+
+function rereadText() { showScreen('screen-reading'); }
+function goHome() { showScreen('screen-start'); }
+
+function showQuestion() {
+  const t = TEXTS[state.currentText];
+  const q = t.questions[state.qIndex];
+  state.answered = false;
+  const total = t.questions.length;
+  const filled = ((state.qIndex) / total) * 100;
+  document.getElementById('progressFill').style.width = filled + '%';
+  document.getElementById('progressLabel').textContent = `Frage ${state.qIndex + 1} von ${total}`;
+  document.getElementById('questionText').textContent = q.q;
+  const optsDiv = document.getElementById('options');
+  optsDiv.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const b = document.createElement('button');
+    b.className = 'option';
+    b.innerHTML = `<span class="opt-letter">${LETTERS[i]}</span>${opt}`;
+    b.onclick = () => answer(i, b);
+    optsDiv.appendChild(b);
+  });
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback';
+  fb.textContent = '';
+  document.getElementById('nextBtn').style.display = 'none';
+}
+
+function answer(chosen, btn) {
+  if (state.answered) return;
+  state.answered = true;
+  const t = TEXTS[state.currentText];
+  const q = t.questions[state.qIndex];
+  document.querySelectorAll('#options .option').forEach((b, i) => {
+    b.classList.add('disabled');
+    if (i === q.correct) b.classList.add('correct');
+    if (i === chosen && chosen !== q.correct) b.classList.add('wrong');
+  });
+  const fb = document.getElementById('feedback');
+  if (chosen === q.correct) {
+    state.score++;
+    fb.className = 'feedback right';
+    fb.textContent = '✅ Richtig! Super gemacht!';
+    playGood();
+  } else {
+    fb.className = 'feedback wrong';
+    fb.textContent = '❌ Leider falsch. Schau dir die richtige Antwort an.';
+  }
+  const isLast = state.qIndex === t.questions.length - 1;
+  const nb = document.getElementById('nextBtn');
+  nb.textContent = isLast ? 'Ergebnis sehen 🎉' : 'Weiter →';
+  nb.style.display = 'inline-block';
+}
+
+function nextQuestion() {
+  const t = TEXTS[state.currentText];
+  if (state.qIndex < t.questions.length - 1) {
+    state.qIndex++;
+    showQuestion();
+  } else {
+    showResult();
+  }
+}
+
+function showResult() {
+  const t = TEXTS[state.currentText];
+  const total = t.questions.length;
+  const score = state.score;
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('resultScore').textContent = `${score} von ${total} richtig`;
+  let stars = score === total ? 3 : score >= Math.ceil(total / 2) ? 2 : score > 0 ? 1 : 0;
+  let starsHtml = '';
+  for (let i = 0; i < 3; i++) starsHtml += `<span class="${i < stars ? 'star-on' : 'star-off'}">★</span>`;
+  document.getElementById('resultStars').innerHTML = starsHtml;
+  let emoji, msg;
+  if (score === total) { emoji = '🏆'; msg = 'Perfekt! Alle Fragen richtig — du bist ein Lese-Profi!'; playFanfare(); }
+  else if (score >= Math.ceil(total / 2)) { emoji = '😊'; msg = 'Gut gemacht! Lies den Text gerne noch einmal.'; }
+  else { emoji = '📖'; msg = 'Kein Problem! Versuche, den Text noch einmal in Ruhe zu lesen.'; }
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultMsg').textContent = msg;
+  showScreen('screen-result');
+}
+
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  return audioCtx;
+}
+function tone(freq, start, dur, vol = 0.12) {
+  const ctx = getCtx(); if (!ctx) return;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.value = freq; o.type = 'triangle';
+  g.gain.setValueAtTime(0, ctx.currentTime + start);
+  g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.02);
+  g.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(ctx.currentTime + start);
+  o.stop(ctx.currentTime + start + dur + 0.05);
+}
+function playGood() { tone(660, 0, 0.12); tone(880, 0.1, 0.18); }
+function playFanfare() { tone(523,0,.15); tone(659,.15,.15); tone(784,.3,.15); tone(1047,.45,.3); }
+
+buildTextList();
+</script>
+</body>
+</html>
